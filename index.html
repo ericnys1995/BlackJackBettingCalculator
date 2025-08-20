@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>賭錢 Mark App v2.3（一般 / 21點 + 分牌/再分｜每 3 局轉莊）</title>
+<title>賭錢 Mark App v2.3.1（兼容版）</title>
 <style>
   :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK HK", "PingFang HK", "Microsoft JhengHei", Arial, sans-serif; }
   body { margin: 0; padding: 12px; background: #f7f7f9; }
@@ -43,12 +42,12 @@
 </style>
 </head>
 <body>
-  <h1>賭錢 Mark App v2.3（一般 / 21點 + 分牌/再分｜每 3 局轉莊）</h1>
+  <h1>賭錢 Mark App v2.3.1（一般 / 21點 + 分牌/再分｜每 3 局轉莊｜兼容版）</h1>
 
   <div class="card banner">
     <div><strong>目前玩家名單：</strong><span id="playersList"></span></div>
   </div>
-  <!-- testing -->
+
   <div class="card">
     <div class="toolbar">
       <div class="seg" role="tablist" aria-label="模式">
@@ -114,23 +113,27 @@
     <div class="history" id="history"></div>
   </div>
 
-  <div class="card">
-    <div><strong>21 點計算簡述：</strong></div>
-    <ul class="muted">
-      <li>結果：W=贏(+1x)、L=輸(-1x)、<strong>D=和(0)</strong>、BJ=Blackjack(主手 3:2 / 6:5)。Double=±2x。</li>
-      <li>保險：莊 A 可買；莊是 BJ → 保險 +1x，否則 -0.5x（以每手注碼為基礎）。</li>
-      <li>分牌 / 再分：手數 1–4；分後各手僅 W/D/L（A+10=21，非 BJ）。</li>
-    </ul>
-  </div>
-
-  <div class="card" style="text-align:center; font-size:12px; color:#6b7280;">本工具只作記賬用途，請量力而為，理性娛樂。</div>
-
 <script>
 (function(){
-  const STORAGE_KEY = "banker_mark_app_v23";
-  const DEFAULT_PLAYERS = ["alan","pc","king","eric","kei","ho"];
-  const MAX_HANDS = 4;
-  let state = {
+  var STORAGE_KEY = "banker_mark_app_v231";
+  var DEFAULT_PLAYERS = ["alan","pc","king","eric","kei","ho"];
+  var MAX_HANDS = 4;
+
+  // Simple storage wrapper with in-memory fallback
+  var memStore = {};
+  function readStore(){
+    try{
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return memStore[STORAGE_KEY] ? JSON.parse(memStore[STORAGE_KEY]) : null; }
+  }
+  function writeStore(obj){
+    try{
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    }catch(e){ memStore[STORAGE_KEY] = JSON.stringify(obj); }
+  }
+
+  var state = {
     players: DEFAULT_PLAYERS.slice(),
     stake: 100,
     round: 1,
@@ -138,297 +141,399 @@
     bankerRoundCount: 0,
     balances: {},
     history: [],
-    mode: "normal", // "normal" | "bj"
-    bj: {
-      dealerUp: "other",
-      dealerHasBJ: false,
-      bjPayout: "3:2"
-    }
+    mode: "normal",
+    bj: { dealerUp: "other", dealerHasBJ: false, bjPayout: "3:2" }
   };
 
   function load(){
-    try{ const raw = localStorage.getItem(STORAGE_KEY); if (raw) Object.assign(state, JSON.parse(raw)); }catch(e){}
-    state.players.forEach(p => { if (typeof state.balances[p] !== 'number') state.balances[p] = 0; });
+    var saved = readStore();
+    if (saved && typeof saved === "object"){
+      for (var k in saved){ state[k] = saved[k]; }
+    }
+    for (var i=0;i<state.players.length;i++){
+      var p = state.players[i];
+      if (typeof state.balances[p] !== "number") state.balances[p] = 0;
+    }
   }
-  function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function save(){ writeStore(state); }
   function $(id){ return document.getElementById(id); }
 
-  // ----- Renders
   function renderBanner(){ $("playersList").textContent = state.players.join("、"); }
   function renderHeader(){
     $("roundNum").textContent = state.round;
     $("currentBanker").textContent = state.players[state.bankerIndex] || "(未設定)";
     $("bankerRoundLeft").textContent = 3 - state.bankerRoundCount;
     $("stake").value = state.stake;
-    document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active'));
-    (state.mode === 'bj' ? $("modeBJ") : $("modeNormal")).classList.add('active');
-    $("bjDealerBar").style.display = state.mode === 'bj' ? '' : 'none';
-    $("pay32").classList.toggle('active', state.bj.bjPayout==="3:2");
-    $("pay65").classList.toggle('active', state.bj.bjPayout==="6:5");
+    var modeBtns = document.querySelectorAll("[data-mode]");
+    for (var i=0;i<modeBtns.length;i++){ modeBtns[i].classList.remove("active"); }
+    (state.mode === "bj" ? $("modeBJ") : $("modeNormal")).classList.add("active");
+    $("bjDealerBar").style.display = state.mode === "bj" ? "" : "none";
+    $("pay32").classList.toggle("active", state.bj.bjPayout==="3:2");
+    $("pay65").classList.toggle("active", state.bj.bjPayout==="6:5");
     $("dealerUp").value = state.bj.dealerUp;
     $("dealerHasBJ").checked = state.bj.dealerHasBJ;
   }
 
   function renderNameList(){
-    const box = $("nameList"); box.innerHTML = "";
-    state.players.forEach((name, idx)=>{
-      const row = document.createElement("div");
+    var box = $("nameList"); box.innerHTML = "";
+    for (var i=0;i<state.players.length;i++){
+      var name = state.players[i];
+      var row = document.createElement("div");
       row.className = "row"; row.style.marginTop = "6px";
-      row.innerHTML = `
-        <span class="pill">${idx+1}</span>
-        <input type="text" value="${name}" data-idx="${idx}" />
-        <button class="secondary small move-up" data-idx="${idx}">上移</button>
-        <button class="secondary small move-down" data-idx="${idx}">下移</button>
-        <button class="destructive small del" data-idx="${idx}">刪</button>
-      `;
+      row.innerHTML = ''
+        + '<span class="pill">'+(i+1)+'</span>'
+        + '<input type="text" value="'+name+'" data-idx="'+i+'" />'
+        + '<button class="secondary small move-up" data-idx="'+i+'">上移</button>'
+        + '<button class="secondary small move-down" data-idx="'+i+'">下移</button>'
+        + '<button class="destructive small del" data-idx="'+i+'">刪</button>';
       box.appendChild(row);
-    });
-    box.querySelectorAll("input[type='text']").forEach(inp=>{
-      inp.addEventListener("change", ()=>{
-        const i = parseInt(inp.getAttribute("data-idx"),10);
-        const val = inp.value.trim(); if (!val) return;
-        const old = state.players[i]; state.players[i] = val;
-        if (old !== val){ state.balances[val] = state.balances[old] || 0; delete state.balances[old]; }
-        postPlayersChange();
-      });
-    });
-    box.querySelectorAll(".move-up").forEach(b=> b.addEventListener("click", ()=>moveIdx(parseInt(b.dataset.idx,10), -1)));
-    box.querySelectorAll(".move-down").forEach(b=> b.addEventListener("click", ()=>moveIdx(parseInt(b.dataset.idx,10), 1)));
-    box.querySelectorAll(".del").forEach(b=> b.addEventListener("click", ()=>delIdx(parseInt(b.dataset.idx,10))));
+    }
+    var inputs = box.querySelectorAll("input[type='text']");
+    for (var j=0;j<inputs.length;j++){
+      inputs[j].addEventListener("change", (function(inp){
+        return function(){
+          var i = parseInt(inp.getAttribute("data-idx"), 10);
+          var val = inp.value.trim(); if (!val) return;
+          var old = state.players[i]; state.players[i] = val;
+          if (old !== val){ state.balances[val] = state.balances[old] || 0; delete state.balances[old]; }
+          postPlayersChange();
+        };
+      })(inputs[j]));
+    }
+    var ups = box.querySelectorAll(".move-up");
+    for (var k=0;k<ups.length;k++){
+      ups[k].addEventListener("click", (function(btn){ return function(){ moveIdx(parseInt(btn.dataset.idx,10), -1); }; })(ups[k]));
+    }
+    var downs = box.querySelectorAll(".move-down");
+    for (var m=0;m<downs.length;m++){
+      downs[m].addEventListener("click", (function(btn){ return function(){ moveIdx(parseInt(btn.dataset.idx,10), 1); }; })(downs[m]));
+    }
+    var dels = box.querySelectorAll(".del");
+    for (var n=0;n<dels.length;n++){
+      dels[n].addEventListener("click", (function(btn){ return function(){ delIdx(parseInt(btn.dataset.idx,10)); }; })(dels[n]));
+    }
   }
-  function moveIdx(i, d){ const j=i+d; if(j<0||j>=state.players.length) return; const t=state.players[i]; state.players[i]=state.players[j]; state.players[j]=t; if(state.bankerIndex===i) state.bankerIndex=j; else if(state.bankerIndex===j) state.bankerIndex=i; postPlayersChange(); }
-  function delIdx(i){ if(state.players.length<=2) return alert("至少保留 2 位玩家。"); const name=state.players[i]; state.players.splice(i,1); delete state.balances[name]; if(state.bankerIndex>=state.players.length) state.bankerIndex=0; postPlayersChange(); }
-  function addPlayer(name){ const n=name.trim(); if(!n) return; if(state.players.includes(n)) return alert("名字重複。"); state.players.push(n); state.balances[n]=0; postPlayersChange(); }
+  function moveIdx(i, d){
+    var j = i + d;
+    if (j<0 || j>=state.players.length) return;
+    var t = state.players[i]; state.players[i] = state.players[j]; state.players[j] = t;
+    if (state.bankerIndex===i) state.bankerIndex=j; else if (state.bankerIndex===j) state.bankerIndex=i;
+    postPlayersChange();
+  }
+  function delIdx(i){
+    if (state.players.length<=2) { alert("至少保留 2 位玩家。"); return; }
+    var name = state.players[i];
+    state.players.splice(i,1);
+    delete state.balances[name];
+    if (state.bankerIndex>=state.players.length) state.bankerIndex=0;
+    postPlayersChange();
+  }
+  function addPlayer(name){
+    var n = (name||"").trim();
+    if (!n) return;
+    if (state.players.indexOf(n)!==-1) { alert("名字重複。"); return; }
+    state.players.push(n);
+    state.balances[n]=0;
+    postPlayersChange();
+  }
   function postPlayersChange(){ save(); renderBanner(); renderNameList(); renderPlayerInputs(); renderScoreboard(); }
 
-  function segOutcome(name, vals){ return `<div class="seg">${vals.map(v=>`<button class="segbtn" data-name="${name}" data-val="${v}">${v}</button>`).join('')}</div>`; }
+  function segOutcome(name, vals){
+    var html = '<div class="seg">';
+    for (var i=0;i<vals.length;i++){
+      html += '<button class="segbtn" data-name="'+name+'" data-val="'+vals[i]+'">'+vals[i]+'</button>';
+    }
+    html += '</div>';
+    return html;
+  }
   function handLabel(i){ return ["A","B","C","D"][i] || String(i+1); }
 
   function handHTML(playerName, handIdx, handsCount){
-    const canBJ = (handsCount===1); // 只有單手時可以 BJ
-    const vals = canBJ ? ["W","D","L","BJ"] : ["W","D","L"];
-    const seg = segOutcome(`${playerName}__${handIdx}`, vals);
-    return `
-      <div class="hand">
-        <span class="hand-label">手 ${handLabel(handIdx)}</span>
-        ${seg}
-        <label class="muted" style="display:flex; align-items:center; gap:4px;">
-          <input type="checkbox" class="dbl" data-name="${playerName}" data-hand="${handIdx}" /> Double
-        </label>
-      </div>
-    `;
+    var canBJ = (handsCount===1);
+    var vals = canBJ ? ["W","D","L","BJ"] : ["W","D","L"];
+    var seg = segOutcome(playerName+"__"+handIdx, vals);
+    return ''
+      + '<div class="hand">'
+      + '<span class="hand-label">手 '+handLabel(handIdx)+'</span>'
+      + seg
+      + '<label class="muted" style="display:flex; align-items:center; gap:4px;">'
+      +   '<input type="checkbox" class="dbl" data-name="'+playerName+'" data-hand="'+handIdx+'" /> Double'
+      + '</label>'
+      + '</div>';
   }
 
   function playerRowHTML(name, idx){
     if (idx===state.bankerIndex){
-      return `
-        <div class="player-row">
-          <div><strong>${name}</strong> <span class="chip">莊家</span></div>
-          <div class="muted" style="text-align:right;">本局由其他玩家結果自動計算</div>
-        </div>`;
+      return ''
+        + '<div class="player-row">'
+        + '<div><strong>'+name+'</strong> <span class="chip">莊家</span></div>'
+        + '<div class="muted" style="text-align:right;">本局由其他玩家結果自動計算</div>'
+        + '</div>';
     }
-    const ins = (state.mode==="bj" && state.bj.dealerUp==="A") ? `<label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="ins" data-name="${name}"/> 保險</label>` : ``;
-    const handsCtr = (state.mode==="bj")
-      ? `<div class="stepper">
-           <span class="muted">手數</span>
-           <button class="small hands-dec" data-name="${name}">-</button>
-           <input class="units hands-count" data-name="${name}" type="number" value="1" min="1" max="${MAX_HANDS}" step="1" />
-           <button class="small hands-inc" data-name="${name}">+</button>
-         </div>`
-      : ``;
-    const unitsCtr = `
-      <div class="stepper">
-        <span class="muted">注數</span>
-        <button class="small units-dec" data-name="${name}">-1</button>
-        <input class="units units-input" data-name="${name}" type="number" value="1" min="1" step="1" />
-        <button class="small units-inc" data-name="${name}">+1</button>
-        <div class="seg">
-          <button class="segchip units-quick" data-name="${name}" data-q="1">×1</button>
-          <button class="segchip units-quick" data-name="${name}" data-q="2">×2</button>
-          <button class="segchip units-quick" data-name="${name}" data-q="3">×3</button>
-        </div>
-      </div>`;
-    return `
-      <div class="player-row">
-        <div><strong>${name}</strong> <span class="chip">玩家</span></div>
-        <div class="player-controls">
-          <div class="hand-wrap" data-name="${name}"></div>
-          ${handsCtr}
-          ${unitsCtr}
-          ${ins}
-        </div>
-      </div>`;
+    var ins = (state.mode==="bj" && state.bj.dealerUp==="A") ? '<label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="ins" data-name="'+name+'"/> 保險</label>' : '';
+    var handsCtr = (state.mode==="bj")
+      ? '<div class="stepper">'
+        + '<span class="muted">手數</span>'
+        + '<button class="small hands-dec" data-name="'+name+'">-</button>'
+        + '<input class="units hands-count" data-name="'+name+'" type="number" value="1" min="1" max="'+MAX_HANDS+'" step="1" />'
+        + '<button class="small hands-inc" data-name="'+name+'">+</button>'
+        + '</div>'
+      : '';
+    var unitsCtr = ''
+      + '<div class="stepper">'
+      + '<span class="muted">注數</span>'
+      + '<button class="small units-dec" data-name="'+name+'">-1</button>'
+      + '<input class="units units-input" data-name="'+name+'" type="number" value="1" min="1" step="1" />'
+      + '<button class="small units-inc" data-name="'+name+'">+1</button>'
+      + '<div class="seg">'
+      + '<button class="segchip units-quick" data-name="'+name+'" data-q="1">×1</button>'
+      + '<button class="segchip units-quick" data-name="'+name+'" data-q="2">×2</button>'
+      + '<button class="segchip units-quick" data-name="'+name+'" data-q="3">×3</button>'
+      + '</div>'
+      + '</div>';
+    return ''
+      + '<div class="player-row">'
+      + '<div><strong>'+name+'</strong> <span class="chip">玩家</span></div>'
+      + '<div class="player-controls">'
+      + '<div class="hand-wrap" data-name="'+name+'"></div>'
+      + handsCtr
+      + unitsCtr
+      + ins
+      + '</div>'
+      + '</div>';
   }
 
   function renderHandsFor(name){
-    const wrap = document.querySelector(`.hand-wrap[data-name="${name}"]`);
+    var wrap = document.querySelector('.hand-wrap[data-name="'+name+'"]');
     if (!wrap) return;
-    const countEl = document.querySelector(`.hands-count[data-name="${name}"]`);
-    let n = 1;
-    if (state.mode==="bj"){ n = Math.max(1, Math.min(MAX_HANDS, parseInt(countEl?.value || "1", 10) || 1)); countEl.value = String(n); }
+    var countEl = document.querySelector('.hands-count[data-name="'+name+'"]');
+    var n = 1;
+    if (state.mode==="bj"){
+      var raw = countEl ? countEl.value : "1";
+      var parsed = parseInt(raw,10);
+      if (!isFinite(parsed)) parsed = 1;
+      if (parsed < 1) parsed = 1;
+      if (parsed > MAX_HANDS) parsed = MAX_HANDS;
+      n = parsed;
+      if (countEl) countEl.value = String(n);
+    }
     wrap.innerHTML = "";
-    for (let i=0;i<n;i++){
+    for (var i=0;i<n;i++){
       wrap.insertAdjacentHTML("beforeend", handHTML(name, i, n));
     }
-    // Default select "D" for each hand
-    wrap.querySelectorAll(".seg").forEach(seg => {
-      const btnD = seg.querySelector('.segbtn[data-val="D"]');
+    // Default select "D"
+    var segs = wrap.querySelectorAll(".seg");
+    for (var s=0;s<segs.length;s++){
+      var btnD = segs[s].querySelector('.segbtn[data-val="D"]');
       if (btnD) btnD.classList.add("active");
-    });
+    }
     // Bind seg buttons
-    wrap.querySelectorAll(".segbtn").forEach(b=>{
-      b.addEventListener("click", ()=>{
-        const parent = b.parentElement;
-        parent.querySelectorAll(".segbtn").forEach(x=>x.classList.remove("active"));
-        b.classList.add("active");
-      });
-    });
+    var segBtns = wrap.querySelectorAll(".segbtn");
+    for (var b=0;b<segBtns.length;b++){
+      segBtns[b].addEventListener("click", (function(btn){
+        return function(){
+          var parent = btn.parentElement;
+          var all = parent.querySelectorAll(".segbtn");
+          for (var t=0;t<all.length;t++){ all[t].classList.remove("active"); }
+          btn.classList.add("active");
+        };
+      })(segBtns[b]));
+    }
   }
 
   function renderPlayerInputs(){
-    const box = $("playerInputs"); box.innerHTML = "";
-    state.players.forEach((name, idx)=>{
-      const holder = document.createElement("div");
-      holder.innerHTML = playerRowHTML(name, idx);
-      const row = holder.firstElementChild;
+    var box = $("playerInputs"); box.innerHTML = "";
+    for (var i=0;i<state.players.length;i++){
+      var name = state.players[i];
+      var holder = document.createElement("div");
+      holder.innerHTML = playerRowHTML(name, i);
+      var row = holder.firstElementChild;
       box.appendChild(row);
-      if (idx !== state.bankerIndex){
-        renderHandsFor(name);
-      }
-    });
+      if (i !== state.bankerIndex){ renderHandsFor(name); }
+    }
     // bindings
-    box.querySelectorAll(".units-inc").forEach(b=> b.addEventListener("click", ()=>{ const name=b.dataset.name; const i=box.querySelector(`.units-input[data-name="${name}"]`); i.value=String((parseInt(i.value||"1",10)||1)+1); }));
-    box.querySelectorAll(".units-dec").forEach(b=> b.addEventListener("click", ()=>{ const name=b.dataset.name; const i=box.querySelector(`.units-input[data-name="${name}"]`); i.value=String(Math.max(1,(parseInt(i.value||"1",10)||1)-1)); }));
-    box.querySelectorAll(".units-quick").forEach(b=> b.addEventListener("click", ()=>{ const name=b.dataset.name; const i=box.querySelector(`.units-input[data-name="${name}"]`); i.value=String(parseInt(b.dataset.q,10)); }));
-    box.querySelectorAll(".hands-inc").forEach(b=> b.addEventListener("click", ()=>{ const name=b.dataset.name; const c=box.querySelector(`.hands-count[data-name="${name}"]`); let v=Math.min(${MAX_HANDS}, (parseInt(c.value||"1",10)||1)+1); c.value=String(v); renderHandsFor(name); }));
-    box.querySelectorAll(".hands-dec").forEach(b=> b.addEventListener("click", ()=>{ const name=b.dataset.name; const c=box.querySelector(`.hands-count[data-name="${name}"]`); let v=Math.max(1, (parseInt(c.value||"1",10)||1)-1); c.value=String(v); renderHandsFor(name); }));
-    box.querySelectorAll(".hands-count").forEach(inp=> inp.addEventListener("change", ()=>{ const name=inp.dataset.name; renderHandsFor(name); }));
-  }
-
-  function renderScoreboard(){
-    const tbody = $("scoreboard"); tbody.innerHTML = "";
-    state.players.forEach((name, idx)=>{
-      const role = (idx===state.bankerIndex) ? "莊家" : "玩家";
-      const val = state.balances[name] || 0;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td class="nowrap">${name}</td><td>${role}</td><td class="nowrap">${val.toFixed(0)}</td>`;
-      tbody.appendChild(tr);
-    });
-  }
-
-  function renderHistory(){
-    const box = $("history"); box.innerHTML = "";
-    function showR(r){ return r==="P" ? "D" : r; } // display legacy P as D
-    state.history.slice().reverse().forEach(h=>{
-      const parts = [];
-      Object.entries(h.results).forEach(([name, obj])=>{
-        const n = obj.hands ? obj.hands.length : 1;
-        if (n>1){
-          const tags = obj.hands.map(o => `${showR(o.r)}${o.dbl?"(×2)":""}`).join(",");
-          let tag = `${name}:[${tags}]×${obj.u}`;
-          if (obj.ins) tag += "[保]";
-          parts.push(tag);
-        } else {
-          const o = obj.hands ? obj.hands[0] : {r:obj.r, dbl:obj.dbl};
-          let tag = `${name}:${showR(o.r)}${o.dbl?"(×2)":""}` + (obj.u>1?`×${obj.u}`:"");
-          if (obj.ins) tag += "[保]";
-          parts.push(tag);
-        }
-      });
-      const line = document.createElement("div");
-      line.textContent = `#${h.round} 莊=${h.banker} | ${parts.join(" ")} | 庄淨=${h.netBanker>=0?'+':''}${h.netBanker}`;
-      box.appendChild(line);
-    });
-    if (!state.history.length){
-      const empty = document.createElement("div"); empty.className="muted"; empty.textContent="尚無記錄。"; box.appendChild(empty);
+    var incs = box.querySelectorAll(".units-inc");
+    for (var a=0;a<incs.length;a++){
+      incs[a].addEventListener("click", (function(btn){
+        return function(){
+          var name = btn.dataset.name;
+          var i = box.querySelector('.units-input[data-name="'+name+'"]');
+          var v = parseInt(i.value||"1",10); if (!isFinite(v)) v=1; i.value = String(v+1);
+        };
+      })(incs[a]));
+    }
+    var decs = box.querySelectorAll(".units-dec");
+    for (var d=0;d<decs.length;d++){
+      decs[d].addEventListener("click", (function(btn){
+        return function(){
+          var name = btn.dataset.name;
+          var i = box.querySelector('.units-input[data-name="'+name+'"]');
+          var v = parseInt(i.value||"1",10); if (!isFinite(v) || v<=1) v=2; i.value = String(v-1);
+        };
+      })(decs[d]));
+    }
+    var quicks = box.querySelectorAll(".units-quick");
+    for (var q=0;q<quicks.length;q++){
+      quicks[q].addEventListener("click", (function(btn){
+        return function(){
+          var name = btn.dataset.name;
+          var i = box.querySelector('.units-input[data-name="'+name+'"]');
+          i.value = String(parseInt(btn.dataset.q,10));
+        };
+      })(quicks[q]));
+    }
+    var hincs = box.querySelectorAll(".hands-inc");
+    for (var hi=0;hi<hincs.length;hi++){
+      hincs[hi].addEventListener("click", (function(btn){
+        return function(){
+          var name = btn.dataset.name;
+          var c = box.querySelector('.hands-count[data-name="'+name+'"]');
+          var v = parseInt(c.value||"1",10); if (!isFinite(v)) v=1;
+          if (v < MAX_HANDS) v++; c.value = String(v); renderHandsFor(name);
+        };
+      })(hincs[hi]));
+    }
+    var hdecs = box.querySelectorAll(".hands-dec");
+    for (var hd=0;hd<hdecs.length;hd++){
+      hdecs[hd].addEventListener("click", (function(btn){
+        return function(){
+          var name = btn.dataset.name;
+          var c = box.querySelector('.hands-count[data-name="'+name+'"]');
+          var v = parseInt(c.value||"1",10); if (!isFinite(v)) v=1;
+          if (v > 1) v--; c.value = String(v); renderHandsFor(name);
+        };
+      })(hdecs[hd]));
+    }
+    var hcounts = box.querySelectorAll(".hands-count");
+    for (var hc=0;hc<hcounts.length;hc++){
+      hcounts[hc].addEventListener("change", (function(inp){
+        return function(){ var name = inp.dataset.name; renderHandsFor(name); };
+      })(hcounts[hc]));
     }
   }
 
-  // ----- Calculation helpers
+  function renderScoreboard(){
+    var tbody = $("scoreboard"); tbody.innerHTML = "";
+    for (var i=0;i<state.players.length;i++){
+      var name = state.players[i];
+      var role = (i===state.bankerIndex) ? "莊家" : "玩家";
+      var val = state.balances[name] || 0;
+      var tr = document.createElement("tr");
+      tr.innerHTML = '<td class="nowrap">'+name+'</td><td>'+role+'</td><td class="nowrap">'+val.toFixed(0)+'</td>';
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderHistory(){
+    var box = $("history"); box.innerHTML = "";
+    function showR(r){ return r==="P" ? "D" : r; }
+    var hist = state.history.slice().reverse();
+    if (!hist.length){
+      var empty = document.createElement("div"); empty.className="muted"; empty.textContent="尚無記錄。"; box.appendChild(empty); return;
+    }
+    for (var i=0;i<hist.length;i++){
+      var h = hist[i]; var parts = [];
+      for (var name in h.results){
+        var obj = h.results[name];
+        var n = obj.hands ? obj.hands.length : 1;
+        if (n>1){
+          var tags = [];
+          for (var k=0;k<n;k++){ var o = obj.hands[k]; tags.push(showR(o.r)+(o.dbl?"(×2)":"")); }
+          var tag = name+':['+tags.join(",")+']×'+obj.u + (obj.ins?"[保]":"");
+          parts.push(tag);
+        } else {
+          var o0 = obj.hands ? obj.hands[0] : {r:obj.r, dbl:obj.dbl};
+          var tag2 = name+':'+showR(o0.r)+(o0.dbl?"(×2)":"") + (obj.u>1?'×'+obj.u:"") + (obj.ins?"[保]":"");
+          parts.push(tag2);
+        }
+      }
+      var line = document.createElement("div");
+      line.textContent = "#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+h.netBanker;
+      box.appendChild(line);
+    }
+  }
+
   function bjRate(){ return state.bj.bjPayout==="6:5" ? 6/5 : 3/2; }
   function bjMult(r, dbl, isSplitLike){
     if (r==="BJ") return isSplitLike ? 1 : bjRate();
     if (r==="W") return dbl ? 2 : 1;
     if (r==="L") return dbl ? -2 : -1;
-    // treat D (and legacy P) as push
     return 0;
   }
 
   function snapshotResults(){
-    const res = {};
-    state.players.forEach((name, idx)=>{
-      if (idx===state.bankerIndex) return;
-      const uEl = document.querySelector(`.units-input[data-name="${name}"]`);
-      let u = parseInt(uEl?uEl.value:"1",10); if (!Number.isFinite(u)||u<1) u=1;
+    var res = {};
+    for (var i=0;i<state.players.length;i++){
+      var name = state.players[i];
+      if (i===state.bankerIndex) continue;
+      var uEl = document.querySelector('.units-input[data-name="'+name+'"]');
+      var u = parseInt(uEl ? uEl.value : "1",10); if (!isFinite(u) || u<1) u = 1;
       if (state.mode==="bj"){
-        const countEl = document.querySelector(`.hands-count[data-name="${name}"]`);
-        const n = Math.max(1, Math.min(MAX_HANDS, parseInt(countEl?countEl.value:"1",10)||1));
-        const insEl = document.querySelector(`.ins[data-name="${name}"]`);
-        const hands = [];
-        for (let i=0;i<n;i++){
-          const segActive = document.querySelector(`.segbtn.active[data-name="${name}__${i}"]`);
-          let r = segActive ? segActive.dataset.val : "D";
-          if (r==="P") r = "D"; // normalize
-          const dblEl = document.querySelector(`.dbl[data-name="${name}"][data-hand="${i}"]`);
-          hands.push({ r, dbl: !!(dblEl && dblEl.checked) });
+        var countEl = document.querySelector('.hands-count[data-name="'+name+'"]');
+        var n = parseInt(countEl ? countEl.value : "1",10);
+        if (!isFinite(n) || n<1) n = 1; if (n>MAX_HANDS) n=MAX_HANDS;
+        var insEl = document.querySelector('.ins[data-name="'+name+'"]');
+        var hands = [];
+        for (var j=0;j<n;j++){
+          var segActive = document.querySelector('.segbtn.active[data-name="'+name+'__'+j+'"]');
+          var r = segActive ? segActive.dataset.val : "D";
+          if (r==="P") r="D";
+          var dblEl = document.querySelector('.dbl[data-name="'+name+'"][data-hand="'+j+'"]');
+          hands.push({ r: r, dbl: !!(dblEl && dblEl.checked) });
         }
-        res[name] = { u, ins: !!(insEl && insEl.checked), hands };
+        res[name] = { u: u, ins: !!(insEl && insEl.checked), hands: hands };
       } else {
-        const segActive = document.querySelector(`.segbtn.active[data-name="${name}__0"]`) || document.querySelector(`.segbtn.active[data-name="${name}"]`);
-        let r = segActive ? segActive.dataset.val : "D";
-        if (r==="P") r = "D";
-        res[name] = { u, hands: [{ r, dbl:false }] };
+        var segActive = document.querySelector('.segbtn.active[data-name="'+name+'__0"]') || document.querySelector('.segbtn.active[data-name="'+name+'"]');
+        var r0 = segActive ? segActive.dataset.val : "D";
+        if (r0==="P") r0="D";
+        res[name] = { u: u, hands: [{ r: r0, dbl: false }] };
       }
-    });
+    }
     return res;
   }
 
   function settleRound(results){
-    const stake = Number(state.stake) || 100;
-    const banker = state.players[state.bankerIndex];
-    let netBanker = 0;
+    var stake = Number(state.stake) || 100;
+    var banker = state.players[state.bankerIndex];
+    var netBanker = 0;
 
     if (state.mode==="normal"){
-      state.players.forEach((name, idx)=>{
-        if (idx===state.bankerIndex) return;
-        const obj = results[name] || { hands:[{r:"D", dbl:false}], u:1 };
-        const base = stake * obj.u;
-        const r = obj.hands[0].r;
+      for (var i=0;i<state.players.length;i++){
+        var name = state.players[i];
+        if (i===state.bankerIndex) continue;
+        var obj = results[name] || { hands:[{r:"D", dbl:false}], u:1 };
+        var base = stake * obj.u;
+        var r = obj.hands[0].r;
         if (r==="W"){ state.balances[name]=(state.balances[name]||0)+base; netBanker -= base; }
         else if (r==="L"){ state.balances[name]=(state.balances[name]||0)-base; netBanker += base; }
-        // D: no change
-      });
+      }
     } else {
-      const dealerBJ = state.bj.dealerHasBJ;
-      const allowIns = state.bj.dealerUp==="A";
-
-      state.players.forEach((name, idx)=>{
-        if (idx===state.bankerIndex) return;
-        const obj = results[name];
-        if (!obj) return;
-        const base = stake * obj.u;
-        let delta = 0;
-        const n = obj.hands.length;
-
+      var dealerBJ = state.bj.dealerHasBJ;
+      var allowIns = state.bj.dealerUp==="A";
+      for (var j=0;j<state.players.length;j++){
+        var nname = state.players[j];
+        if (j===state.bankerIndex) continue;
+        var pobj = results[nname]; if (!pobj) continue;
+        var base2 = stake * pobj.u;
+        var delta = 0;
+        var nHands = pobj.hands.length;
         if (dealerBJ){
-          if (!(n===1 && obj.hands[0].r === "BJ")){
-            delta -= base * n; // each hand loses
+          if (!(nHands===1 && pobj.hands[0].r==="BJ")){
+            delta -= base2 * nHands;
           }
-          if (allowIns && obj.ins){ delta += base; }
+          if (allowIns && pobj.ins){ delta += base2; }
         } else {
-          if (allowIns && obj.ins){ delta -= base*0.5; }
-          for (let i=0;i<n;i++){
-            const h = obj.hands[i];
-            const isSplitLike = (n>1);
-            delta += base * bjMult(h.r, h.dbl, isSplitLike);
+          if (allowIns && pobj.ins){ delta -= base2*0.5; }
+          for (var h=0;h<nHands;h++){
+            var hand = pobj.hands[h];
+            var isSplitLike = (nHands>1);
+            delta += base2 * bjMult(hand.r, hand.dbl, isSplitLike);
           }
         }
-
-        state.balances[name] = (state.balances[name] || 0) + delta;
+        state.balances[nname] = (state.balances[nname] || 0) + delta;
         netBanker -= delta;
-      });
+      }
     }
-
     state.balances[banker] = (state.balances[banker] || 0) + netBanker;
     return netBanker;
   }
@@ -440,61 +545,61 @@
   }
 
   function recordRound(){
-    const results = snapshotResults();
-    const banker = state.players[state.bankerIndex];
-    const usedStake = state.stake;
-    const net = settleRound(results);
-    state.history.push({ round: state.round, banker, results, netBanker: net, mode: state.mode, bj: {...state.bj}, stake: usedStake });
+    var results = snapshotResults();
+    var banker = state.players[state.bankerIndex];
+    var usedStake = state.stake;
+    var net = settleRound(results);
+    state.history.push({ round: state.round, banker: banker, results: results, netBanker: net, mode: state.mode, bj: { dealerUp: state.bj.dealerUp, dealerHasBJ: state.bj.dealerHasBJ, bjPayout: state.bj.bjPayout }, stake: usedStake });
     nextRoundRotateIfNeeded();
     save(); renderAll();
   }
 
   function undoRound(){
     if (!state.history.length) return;
-    const last = state.history.pop();
+    var last = state.history.pop();
     if (state.bankerRoundCount===0){ state.bankerIndex = (state.bankerIndex - 1 + state.players.length) % state.players.length; state.bankerRoundCount = 2; }
     else { state.bankerRoundCount -= 1; }
     state.round -= 1;
 
-    const prevMode = last.mode || "normal";
-    const prevBJ = last.bj || state.bj;
-    const usedStake = last.stake || state.stake;
+    var prevMode = last.mode || "normal";
+    var prevBJ = last.bj || state.bj;
+    var usedStake = last.stake || state.stake;
     function computeDelta(obj){
-      const base = usedStake * obj.u;
+      var base = usedStake * obj.u;
       if (prevMode==="normal"){
-        const r = obj.hands[0].r;
+        var r = obj.hands[0].r;
         if (r==="W") return base;
         if (r==="L") return -base;
         return 0;
       } else {
-        const allowIns = prevBJ.dealerUp==="A";
-        const dealerBJ = prevBJ.dealerHasBJ;
-        const rate = prevBJ.bjPayout==="6:5" ? 6/5 : 3/2;
+        var allowIns = prevBJ.dealerUp==="A";
+        var dealerBJ = prevBJ.dealerHasBJ;
+        var rate = prevBJ.bjPayout==="6:5" ? 6/5 : 3/2;
         function mult(r, dbl, isSplitLike){
           if (r==="BJ") return isSplitLike ? 1 : rate;
           if (r==="W") return dbl?2:1;
           if (r==="L") return dbl?-2:-1;
           return 0;
         }
-        let d = 0;
-        const n = obj.hands.length;
+        var d = 0;
+        var n = obj.hands.length;
         if (dealerBJ){
           if (!(n===1 && obj.hands[0].r==="BJ")) d -= base * n;
           if (allowIns && obj.ins) d += base;
         } else {
           if (allowIns && obj.ins) d -= base*0.5;
-          for (let i=0;i<n;i++) d += base * mult(obj.hands[i].r, obj.hands[i].dbl, n>1);
+          for (var i=0;i<n;i++){ d += base * mult(obj.hands[i].r, obj.hands[i].dbl, n>1); }
         }
         return d;
       }
     }
 
-    let netBanker = 0;
-    Object.entries(last.results).forEach(([name, obj])=>{
-      const d = computeDelta(obj);
+    var netBanker = 0;
+    for (var name in last.results){
+      var d = computeDelta(last.results[name]);
       state.balances[name] -= d;
       netBanker += d;
-    });
+    }
     state.balances[last.banker] -= netBanker;
 
     save(); renderAll();
@@ -502,42 +607,41 @@
 
   function resetAll(){
     if (!confirm("確定要重置所有記錄？此動作不可還原。")) return;
-    const playersCopy = state.players.slice();
+    var playersCopy = state.players.slice();
     state = {
       players: playersCopy, stake: state.stake, round: 1, bankerIndex: 0, bankerRoundCount: 0,
       balances: {}, history: [], mode: "normal",
       bj: { dealerUp:"other", dealerHasBJ:false, bjPayout:"3:2" }
     };
-    state.players.forEach(p => state.balances[p]=0);
+    for (var i=0;i<state.players.length;i++){ state.balances[state.players[i]]=0; }
     save(); renderAll();
   }
 
-  // ----- Bindings
   function bindGlobal(){
     $("recordRound").addEventListener("click", recordRound);
     $("undoRound").addEventListener("click", undoRound);
     $("resetAll").addEventListener("click", resetAll);
-    $("saveStake").addEventListener("click", ()=>{
-      const val = Number($("stake").value); if(!Number.isFinite(val)||val<=0) return alert("請輸入正確的數字");
+    $("saveStake").addEventListener("click", function(){
+      var val = Number($("stake").value); if(!isFinite(val)||val<=0) { alert("請輸入正確的數字"); return; }
       state.stake = Math.round(val); save(); renderHeader();
     });
-    $("addPlayer").addEventListener("click", ()=>{ const v=$("newPlayerName").value||""; $("newPlayerName").value=""; addPlayer(v); });
-    $("loadDefault").addEventListener("click", ()=>{
+    $("addPlayer").addEventListener("click", function(){ var v=$("newPlayerName").value||""; $("newPlayerName").value=""; addPlayer(v); });
+    $("loadDefault").addEventListener("click", function(){
       if (!confirm("載入預設 6 人名單（alan、pc、king、eric、kei、ho）？目前名單會被取代，但分數不變。")) return;
-      const currentBankerName = state.players[state.bankerIndex];
+      var currentBankerName = state.players[state.bankerIndex];
       state.players = DEFAULT_PLAYERS.slice();
-      const newIdx = state.players.indexOf(currentBankerName);
+      var newIdx = state.players.indexOf(currentBankerName);
       state.bankerIndex = newIdx >= 0 ? newIdx : 0;
-      const newBalances = {}; state.players.forEach(n => newBalances[n]=state.balances[n]||0);
+      var newBalances = {}; for (var i=0;i<state.players.length;i++){ var n = state.players[i]; newBalances[n] = state.balances[n] || 0; }
       state.balances = newBalances;
       postPlayersChange();
     });
-    $("modeNormal").addEventListener("click", ()=>{ state.mode="normal"; save(); renderAll(); });
-    $("modeBJ").addEventListener("click", ()=>{ state.mode="bj"; save(); renderAll(); });
-    $("pay32").addEventListener("click", ()=>{ state.bj.bjPayout="3:2"; save(); renderHeader(); });
-    $("pay65").addEventListener("click", ()=>{ state.bj.bjPayout="6:5"; save(); renderHeader(); });
-    $("dealerUp").addEventListener("change", e=>{ state.bj.dealerUp=e.target.value; save(); renderPlayerInputs(); });
-    $("dealerHasBJ").addEventListener("change", e=>{ state.bj.dealerHasBJ=e.target.checked; save(); });
+    $("modeNormal").addEventListener("click", function(){ state.mode="normal"; save(); renderAll(); });
+    $("modeBJ").addEventListener("click", function(){ state.mode="bj"; save(); renderAll(); });
+    $("pay32").addEventListener("click", function(){ state.bj.bjPayout="3:2"; save(); renderHeader(); });
+    $("pay65").addEventListener("click", function(){ state.bj.bjPayout="6:5"; save(); renderHeader(); });
+    $("dealerUp").addEventListener("change", function(e){ state.bj.dealerUp=e.target.value; save(); renderPlayerInputs(); });
+    $("dealerHasBJ").addEventListener("change", function(e){ state.bj.dealerHasBJ=e.target.checked; save(); });
   }
 
   function renderAll(){ renderBanner(); renderHeader(); renderNameList(); renderPlayerInputs(); renderScoreboard(); renderHistory(); }

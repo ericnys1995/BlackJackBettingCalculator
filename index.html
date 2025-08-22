@@ -3,135 +3,130 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>賭錢 Mark App v2.3.1（兼容版）</title>
+<title>賭錢 Mark App v2.5（只限 21 點｜每手可買保險｜設置分頁｜兼容版）</title>
 <style>
   :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK HK", "PingFang HK", "Microsoft JhengHei", Arial, sans-serif; }
-  body { margin: 0; padding: 12px; background: #f7f7f9; }
-  h1 { font-size: 18px; margin: 0 0 10px; }
-  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 0 rgba(0,0,0,.03); }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  label { font-size: 13px; color: #111827; }
-  input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
-  input[type="number"].units { width: 70px; text-align: center; }
-  button { padding: 8px 12px; border: 1px solid #111827; background: #111827; color: white; border-radius: 10px; cursor: pointer; font-size: 14px; }
-  button.secondary { background: #fff; color: #111827; border-color: #d1d5db; }
-  button.destructive { background: #ef4444; border-color: #ef4444; }
-  button.small { padding: 4px 8px; font-size: 12px; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .chip { padding: 3px 8px; border: 1px solid #d1d5db; border-radius: 9999px; background: #f3f4f6; font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; text-align: left; }
-  .muted { color: #6b7280; }
-  .banner { background:#111827; color:#fff; padding:10px; border-radius:12px; font-size:14px; }
-  .banner strong { font-weight:700; }
-  .nowrap { white-space: nowrap; }
-  .history { max-height: 260px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; background:#fff; padding:8px; }
-  .player-row { display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center; border:1px solid #e5e7eb; border-radius:12px; padding:8px; background:#fafafa; }
-  .player-controls { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  body { margin:0; padding:12px; background:#f7f7f9; color:#111827; }
+  h1 { font-size:18px; margin:0 0 10px; }
+  .tabs { display:flex; gap:8px; margin-bottom:8px; }
+  .tabbtn { padding:8px 12px; border:1px solid #d1d5db; background:#fff; border-radius:10px; cursor:pointer; }
+  .tabbtn.active { background:#111827; color:#fff; border-color:#111827; }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px; margin-bottom:10px; box-shadow:0 1px 0 rgba(0,0,0,.03); }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .spacer { flex:1; }
+  .chip { padding:3px 8px; border:1px solid #d1d5db; border-radius:9999px; background:#f3f4f6; font-size:12px; }
+  .muted { color:#6b7280; }
+  input[type="text"], input[type="number"], select { padding:8px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; }
+  input[type="number"].units { width:70px; text-align:center; }
+  button { padding:8px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:10px; cursor:pointer; font-size:14px; }
+  button.secondary { background:#fff; color:#111827; border-color:#d1d5db; }
+  button.destructive { background:#ef4444; border-color:#ef4444; }
+  button.small { padding:4px 8px; font-size:12px; }
   .seg { display:flex; border:1px solid #d1d5db; border-radius:10px; overflow:hidden; }
   .seg > button { border:0; background:#fff; color:#111827; padding:6px 8px; }
   .seg > button.active { background:#111827; color:#fff; }
-  .stepper { display:flex; align-items:center; gap:6px; }
-  .stepper .units { width:64px; }
-  .pill { padding:3px 8px; border:1px solid #d1d5db; border-radius:9999px; background:#fff; font-size:12px; }
-  .toolbar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .spacer { flex:1; }
-  .hand-wrap { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .hand { display:flex; gap:6px; align-items:center; padding:4px 6px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
+  .player-row { border:1px solid #e5e7eb; border-radius:12px; padding:8px; background:#fafafa; margin-bottom:8px; }
+  .player-head { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .handset-wrap { display:flex; gap:8px; flex-wrap:wrap; }
+  .handset { border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:6px; display:flex; flex-direction:column; gap:6px; min-width:260px; }
+  .hand-top { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .hand-label { font-size:12px; padding:2px 6px; border:1px solid #d1d5db; border-radius:9999px; background:#fafafa; }
+  .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:8px; border-bottom:1px solid #e5e7eb; font-size:14px; text-align:left; }
+  .history { max-height:260px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; background:#fff; padding:8px; }
 </style>
 </head>
 <body>
-  <h1>賭錢 Mark App v2.3.1（一般 / 21點 + 分牌/再分｜每 3 局轉莊｜兼容版）</h1>
+  <h1>賭錢 Mark App v2.5（只限 21 點｜每 3 局轉莊）</h1>
 
-  <div class="card banner">
-    <div><strong>目前玩家名單：</strong><span id="playersList"></span></div>
+  <div class="tabs">
+    <button id="tabPlay" class="tabbtn active">Play</button>
+    <button id="tabSetup" class="tabbtn">Setup</button>
   </div>
 
-  <div class="card">
-    <div class="toolbar">
-      <div class="seg" role="tablist" aria-label="模式">
-        <button id="modeNormal" class="active" data-mode="normal">一般模式</button>
-        <button id="modeBJ" data-mode="bj">21點模式</button>
+  <!-- Play Page -->
+  <div id="pagePlay">
+    <div class="card">
+      <div class="toolbar">
+        <div><strong>目前回合：</strong><span id="roundNum">1</span></div>
+        <div><strong>莊家：</strong><span id="currentBanker" class="chip"></span> <span class="muted">(此莊還剩 <span id="bankerRoundLeft">3</span> 局)</span></div>
+        <div class="spacer"></div>
+        <div class="muted">（W=贏、D=和、L=輸、BJ=Blackjack；每手可買保險）</div>
       </div>
-      <div class="seg" role="tablist" aria-label="Blackjack 賠率">
-        <button id="pay32" class="active">BJ 3:2</button>
-        <button id="pay65">BJ 6:5</button>
+      <div class="toolbar" style="margin-top:6px;">
+        <label>莊家明牌</label>
+        <select id="dealerUp">
+          <option value="other">其他</option>
+          <option value="A">A (可買保險)</option>
+        </select>
+        <label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" id="dealerHasBJ" /> 莊家是 Blackjack</label>
       </div>
-      <span class="muted">（以上只影響 21 點模式計算）</span>
     </div>
-    <div class="toolbar" style="margin-top:6px;">
-      <div><strong>目前回合：</strong><span id="roundNum">1</span></div>
-      <div><strong>莊家：</strong><span id="currentBanker" class="chip"></span> <span class="muted">(此莊還剩 <span id="bankerRoundLeft">3</span> 局)</span></div>
-      <div class="spacer"></div>
-      <label for="stake">每注</label>
-      <input id="stake" type="number" value="100" min="1" step="1" class="units" />
-      <button id="saveStake" class="secondary">更新</button>
+
+    <div class="card">
+      <div id="playerInputs"></div>
+      <div class="toolbar" style="margin-top:8px;">
+        <button id="recordRound">記錄本局</button>
+        <button id="undoRound" class="secondary">撤銷上一局</button>
+        <button id="resetAll" class="destructive">重置所有</button>
+      </div>
     </div>
-    <div id="bjDealerBar" class="toolbar" style="margin-top:6px; display:none;">
-      <label>莊家明牌</label>
-      <select id="dealerUp">
-        <option value="other">其他</option>
-        <option value="A">A (可買保險)</option>
-      </select>
-      <label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" id="dealerHasBJ" /> 莊家是 Blackjack</label>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">結餘</h3>
+      <table>
+        <thead><tr><th>玩家</th><th>角色</th><th>累計</th></tr></thead>
+        <tbody id="scoreboard"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">歷史</h3>
+      <div class="history" id="history"></div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="toolbar" style="margin-bottom:6px;">
-      <label class="muted">玩家名字（可增刪；順序即為輪莊順序）</label>
-      <div class="spacer"></div>
-      <input id="newPlayerName" type="text" placeholder="新增玩家名" />
-      <button id="addPlayer" class="secondary">加人</button>
-      <button id="loadDefault" class="secondary">載入預設 6 人</button>
+  <!-- Setup Page -->
+  <div id="pageSetup" style="display:none;">
+    <div class="card">
+      <div class="toolbar">
+        <label for="stake">每注單位</label>
+        <input id="stake" type="number" value="100" min="1" step="1" class="units" />
+        <div class="seg" style="margin-left:8px;">
+          <button id="pay32" class="active">BJ 3:2</button>
+          <button id="pay65">BJ 6:5</button>
+        </div>
+        <div class="spacer"></div>
+        <button id="saveSetup" class="secondary">儲存</button>
+      </div>
     </div>
-    <div id="nameList"></div>
-  </div>
 
-  <div class="card">
-    <div id="playerInputs"></div>
-    <div class="toolbar" style="margin-top:8px;">
-      <button id="recordRound">記錄本局</button>
-      <button id="undoRound" class="secondary">撤銷上一局</button>
-      <button id="resetAll" class="destructive">重置所有</button>
+    <div class="card">
+      <div class="toolbar" style="margin-bottom:6px;">
+        <label class="muted">玩家名字（可增刪；順序即為輪莊順序）</label>
+        <div class="spacer"></div>
+        <input id="newPlayerName" type="text" placeholder="新增玩家名（自動美化大小寫）" />
+        <button id="addPlayer" class="secondary">加人</button>
+        <button id="loadDefault" class="secondary">載入預設名單</button>
+      </div>
+      <div id="nameList"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <h3 style="margin:0 0 8px;">結餘</h3>
-    <table>
-      <thead>
-        <tr><th>玩家</th><th>角色</th><th>累計</th></tr>
-      </thead>
-      <tbody id="scoreboard"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h3 style="margin:0 0 8px;">歷史</h3>
-    <div class="history" id="history"></div>
   </div>
 
 <script>
 (function(){
-  var STORAGE_KEY = "banker_mark_app_v231";
-  var DEFAULT_PLAYERS = ["alan","pc","king","eric","kei","ho"];
+  var STORAGE_KEY = "banker_mark_app_v25";
+  var DEFAULT_PLAYERS = ["Alan","PC","King","Eric","Kei","Ho","Kenneth"];
   var MAX_HANDS = 4;
 
-  // Simple storage wrapper with in-memory fallback
+  // storage with fallback
   var memStore = {};
-  function readStore(){
-    try{
-      var raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    }catch(e){ return memStore[STORAGE_KEY] ? JSON.parse(memStore[STORAGE_KEY]) : null; }
-  }
-  function writeStore(obj){
-    try{
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-    }catch(e){ memStore[STORAGE_KEY] = JSON.stringify(obj); }
-  }
+  function readStore(){ try{ var raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return memStore[STORAGE_KEY]?JSON.parse(memStore[STORAGE_KEY]):null; } }
+  function writeStore(obj){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }catch(e){ memStore[STORAGE_KEY]=JSON.stringify(obj); } }
+  function $(id){ return document.getElementById(id); }
+
+  function capName(s){ if(!s) return s; if(s.toLowerCase()==="pc") return "PC"; return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); }
 
   var state = {
     players: DEFAULT_PLAYERS.slice(),
@@ -141,512 +136,311 @@
     bankerRoundCount: 0,
     balances: {},
     history: [],
-    mode: "normal",
-    bj: { dealerUp: "other", dealerHasBJ: false, bjPayout: "3:2" }
+    bj: { dealerUp:"other", dealerHasBJ:false, bjPayout:"3:2" }
   };
 
-  function load(){
-    var saved = readStore();
-    if (saved && typeof saved === "object"){
-      for (var k in saved){ state[k] = saved[k]; }
-    }
-    for (var i=0;i<state.players.length;i++){
-      var p = state.players[i];
-      if (typeof state.balances[p] !== "number") state.balances[p] = 0;
-    }
-  }
+  function load(){ var saved=readStore(); if(saved&&typeof saved==="object"){ for(var k in saved){ state[k]=saved[k]; } } for(var i=0;i<state.players.length;i++){ var p=state.players[i]; if(typeof state.balances[p]!=="number") state.balances[p]=0; } }
   function save(){ writeStore(state); }
-  function $(id){ return document.getElementById(id); }
 
-  function renderBanner(){ $("playersList").textContent = state.players.join("、"); }
-  function renderHeader(){
-    $("roundNum").textContent = state.round;
-    $("currentBanker").textContent = state.players[state.bankerIndex] || "(未設定)";
-    $("bankerRoundLeft").textContent = 3 - state.bankerRoundCount;
-    $("stake").value = state.stake;
-    var modeBtns = document.querySelectorAll("[data-mode]");
-    for (var i=0;i<modeBtns.length;i++){ modeBtns[i].classList.remove("active"); }
-    (state.mode === "bj" ? $("modeBJ") : $("modeNormal")).classList.add("active");
-    $("bjDealerBar").style.display = state.mode === "bj" ? "" : "none";
-    $("pay32").classList.toggle("active", state.bj.bjPayout==="3:2");
-    $("pay65").classList.toggle("active", state.bj.bjPayout==="6:5");
-    $("dealerUp").value = state.bj.dealerUp;
-    $("dealerHasBJ").checked = state.bj.dealerHasBJ;
-  }
+  function segOutcome(name, vals){ var html='<div class="seg">'; for(var i=0;i<vals.length;i++){ html+='<button class="segbtn" data-name="'+name+'" data-val="'+vals[i]+'">'+vals[i]+'</button>'; } html+='</div>'; return html; }
+  function handLabel(i){ return ["A","B","C","D"][i]||String(i+1); }
 
+  /* ---------- Setup page ---------- */
   function renderNameList(){
-    var box = $("nameList"); box.innerHTML = "";
-    for (var i=0;i<state.players.length;i++){
-      var name = state.players[i];
-      var row = document.createElement("div");
-      row.className = "row"; row.style.marginTop = "6px";
-      row.innerHTML = ''
-        + '<span class="pill">'+(i+1)+'</span>'
-        + '<input type="text" value="'+name+'" data-idx="'+i+'" />'
-        + '<button class="secondary small move-up" data-idx="'+i+'">上移</button>'
-        + '<button class="secondary small move-down" data-idx="'+i+'">下移</button>'
-        + '<button class="destructive small del" data-idx="'+i+'">刪</button>';
+    var box=$("nameList"); if(!box) return; box.innerHTML="";
+    for(var i=0;i<state.players.length;i++){
+      var name=state.players[i];
+      var row=document.createElement("div"); row.className="row"; row.style.marginTop="6px";
+      row.innerHTML='<span class="chip">'+(i+1)+'</span>'
+        +'<input type="text" value="'+name+'" data-idx="'+i+'" />'
+        +'<button class="secondary small move-up" data-idx="'+i+'">上移</button>'
+        +'<button class="secondary small move-down" data-idx="'+i+'">下移</button>'
+        +'<button class="destructive small del" data-idx="'+i+'">刪</button>';
       box.appendChild(row);
     }
-    var inputs = box.querySelectorAll("input[type='text']");
-    for (var j=0;j<inputs.length;j++){
-      inputs[j].addEventListener("change", (function(inp){
-        return function(){
-          var i = parseInt(inp.getAttribute("data-idx"), 10);
-          var val = inp.value.trim(); if (!val) return;
-          var old = state.players[i]; state.players[i] = val;
-          if (old !== val){ state.balances[val] = state.balances[old] || 0; delete state.balances[old]; }
-          postPlayersChange();
-        };
-      })(inputs[j]));
+    var inputs=box.querySelectorAll("input[type='text']");
+    for(var j=0;j<inputs.length;j++){
+      inputs[j].addEventListener("change",(function(inp){ return function(){
+        var i=parseInt(inp.getAttribute("data-idx"),10);
+        var val=capName(inp.value.trim()); if(!val) return;
+        var old=state.players[i]; state.players[i]=val;
+        if(old!==val){ state.balances[val]=state.balances[old]||0; delete state.balances[old]; }
+        save(); renderNameList(); renderPlayerInputs(); renderScoreboard();
+      }; })(inputs[j]));
     }
-    var ups = box.querySelectorAll(".move-up");
-    for (var k=0;k<ups.length;k++){
-      ups[k].addEventListener("click", (function(btn){ return function(){ moveIdx(parseInt(btn.dataset.idx,10), -1); }; })(ups[k]));
-    }
-    var downs = box.querySelectorAll(".move-down");
-    for (var m=0;m<downs.length;m++){
-      downs[m].addEventListener("click", (function(btn){ return function(){ moveIdx(parseInt(btn.dataset.idx,10), 1); }; })(downs[m]));
-    }
-    var dels = box.querySelectorAll(".del");
-    for (var n=0;n<dels.length;n++){
-      dels[n].addEventListener("click", (function(btn){ return function(){ delIdx(parseInt(btn.dataset.idx,10)); }; })(dels[n]));
-    }
+    var ups=box.querySelectorAll(".move-up");
+    for(var a=0;a<ups.length;a++){ ups[a].addEventListener("click",(function(b){return function(){ moveIdx(parseInt(b.dataset.idx,10),-1); };})(ups[a])); }
+    var downs=box.querySelectorAll(".move-down");
+    for(var b=0;b<downs.length;b++){ downs[b].addEventListener("click",(function(bn){return function(){ moveIdx(parseInt(bn.dataset.idx,10),1); };})(downs[b])); }
+    var dels=box.querySelectorAll(".del");
+    for(var c=0;c<dels.length;c++){ dels[c].addEventListener("click",(function(btn){return function(){ delIdx(parseInt(btn.dataset.idx,10)); };})(dels[c])); }
   }
-  function moveIdx(i, d){
-    var j = i + d;
-    if (j<0 || j>=state.players.length) return;
-    var t = state.players[i]; state.players[i] = state.players[j]; state.players[j] = t;
-    if (state.bankerIndex===i) state.bankerIndex=j; else if (state.bankerIndex===j) state.bankerIndex=i;
-    postPlayersChange();
-  }
-  function delIdx(i){
-    if (state.players.length<=2) { alert("至少保留 2 位玩家。"); return; }
-    var name = state.players[i];
-    state.players.splice(i,1);
-    delete state.balances[name];
-    if (state.bankerIndex>=state.players.length) state.bankerIndex=0;
-    postPlayersChange();
-  }
-  function addPlayer(name){
-    var n = (name||"").trim();
-    if (!n) return;
-    if (state.players.indexOf(n)!==-1) { alert("名字重複。"); return; }
-    state.players.push(n);
-    state.balances[n]=0;
-    postPlayersChange();
-  }
-  function postPlayersChange(){ save(); renderBanner(); renderNameList(); renderPlayerInputs(); renderScoreboard(); }
+  function moveIdx(i,d){ var j=i+d; if(j<0||j>=state.players.length) return; var t=state.players[i]; state.players[i]=state.players[j]; state.players[j]=t; if(state.bankerIndex===i) state.bankerIndex=j; else if(state.bankerIndex===j) state.bankerIndex=i; save(); renderNameList(); renderPlayerInputs(); renderScoreboard(); }
+  function delIdx(i){ if(state.players.length<=2){ alert("至少保留 2 位玩家。"); return; } var name=state.players[i]; state.players.splice(i,1); delete state.balances[name]; if(state.bankerIndex>=state.players.length) state.bankerIndex=0; save(); renderNameList(); renderPlayerInputs(); renderScoreboard(); }
 
-  function segOutcome(name, vals){
-    var html = '<div class="seg">';
-    for (var i=0;i<vals.length;i++){
-      html += '<button class="segbtn" data-name="'+name+'" data-val="'+vals[i]+'">'+vals[i]+'</button>';
-    }
-    html += '</div>';
-    return html;
+  /* ---------- Play page ---------- */
+  function renderHeader(){
+    $("roundNum").textContent=state.round;
+    $("currentBanker").textContent=state.players[state.bankerIndex]||"(未設定)";
+    $("bankerRoundLeft").textContent=3-state.bankerRoundCount;
+    $("stake").value=state.stake;
+    $("dealerUp").value=state.bj.dealerUp; $("dealerHasBJ").checked=state.bj.dealerHasBJ;
+    $("pay32").classList.toggle("active", state.bj.bjPayout==="3:2");
+    $("pay65").classList.toggle("active", state.bj.bjPayout==="6:5");
   }
-  function handLabel(i){ return ["A","B","C","D"][i] || String(i+1); }
 
-  function handHTML(playerName, handIdx, handsCount){
-    var canBJ = (handsCount===1);
-    var vals = canBJ ? ["W","D","L","BJ"] : ["W","D","L"];
-    var seg = segOutcome(playerName+"__"+handIdx, vals);
+  function handsetHTML(playerName, handIdx, handsCount){
+    var canBJ=(handsCount===1);
+    var vals=canBJ?["W","D","L","BJ"]:["W","D","L"];
+    var seg=segOutcome(playerName+"__"+handIdx, vals);
+    var showIns = $("dealerUp").value==="A";
+    var insHTML = showIns ? '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="ins" data-name="'+playerName+'" data-hand="'+handIdx+'" /> 保險</label>' : '';
     return ''
-      + '<div class="hand">'
-      + '<span class="hand-label">手 '+handLabel(handIdx)+'</span>'
-      + seg
-      + '<label class="muted" style="display:flex; align-items:center; gap:4px;">'
-      +   '<input type="checkbox" class="dbl" data-name="'+playerName+'" data-hand="'+handIdx+'" /> Double'
-      + '</label>'
-      + '</div>';
+      +'<div class="handset">'
+      +  '<div class="hand-top">'
+      +    '<span class="hand-label">手 '+handLabel(handIdx)+'</span>'
+      +     seg
+      +    '<label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="dbl" data-name="'+playerName+'" data-hand="'+handIdx+'" /> Double</label>'
+      +     insHTML
+      +  '</div>'
+      +  '<div class="row">'
+      +    '<span class="muted">注數</span>'
+      +    '<button class="small units-dec" data-name="'+playerName+'" data-hand="'+handIdx+'">-1</button>'
+      +    '<input class="units units-input" data-name="'+playerName+'" data-hand="'+handIdx+'" type="number" value="1" min="1" step="1" />'
+      +    '<button class="small units-inc" data-name="'+playerName+'" data-hand="'+handIdx+'">+1</button>'
+      +    '<div class="seg">'
+      +      '<button class="segchip units-quick" data-name="'+playerName+'" data-hand="'+handIdx+'" data-q="1">×1</button>'
+      +      '<button class="segchip units-quick" data-name="'+playerName+'" data-hand="'+handIdx+'" data-q="2">×2</button>'
+      +      '<button class="segchip units-quick" data-name="'+playerName+'" data-hand="'+handIdx+'" data-q="3">×3</button>'
+      +    '</div>'
+      +  '</div>'
+      +'</div>';
   }
 
   function playerRowHTML(name, idx){
-    if (idx===state.bankerIndex){
-      return ''
-        + '<div class="player-row">'
-        + '<div><strong>'+name+'</strong> <span class="chip">莊家</span></div>'
-        + '<div class="muted" style="text-align:right;">本局由其他玩家結果自動計算</div>'
-        + '</div>';
-    }
-    var ins = (state.mode==="bj" && state.bj.dealerUp==="A") ? '<label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="ins" data-name="'+name+'"/> 保險</label>' : '';
-    var handsCtr = (state.mode==="bj")
-      ? '<div class="stepper">'
-        + '<span class="muted">手數</span>'
-        + '<button class="small hands-dec" data-name="'+name+'">-</button>'
-        + '<input class="units hands-count" data-name="'+name+'" type="number" value="1" min="1" max="'+MAX_HANDS+'" step="1" />'
-        + '<button class="small hands-inc" data-name="'+name+'">+</button>'
-        + '</div>'
-      : '';
-    var unitsCtr = ''
-      + '<div class="stepper">'
-      + '<span class="muted">注數</span>'
-      + '<button class="small units-dec" data-name="'+name+'">-1</button>'
-      + '<input class="units units-input" data-name="'+name+'" type="number" value="1" min="1" step="1" />'
-      + '<button class="small units-inc" data-name="'+name+'">+1</button>'
-      + '<div class="seg">'
-      + '<button class="segchip units-quick" data-name="'+name+'" data-q="1">×1</button>'
-      + '<button class="segchip units-quick" data-name="'+name+'" data-q="2">×2</button>'
-      + '<button class="segchip units-quick" data-name="'+name+'" data-q="3">×3</button>'
-      + '</div>'
-      + '</div>';
+    var tag=(idx===state.bankerIndex)?' <span class="chip">莊家</span>':'';
+    var handsCtr=(idx===state.bankerIndex)?'':
+      '<div class="row"><span class="muted">手數</span>'
+      +'<button class="small hands-dec" data-name="'+name+'">-</button>'
+      +'<input class="units hands-count" data-name="'+name+'" type="number" value="1" min="1" max="'+MAX_HANDS+'" step="1" />'
+      +'<button class="small hands-inc" data-name="'+name+'">+</button></div>';
     return ''
-      + '<div class="player-row">'
-      + '<div><strong>'+name+'</strong> <span class="chip">玩家</span></div>'
-      + '<div class="player-controls">'
-      + '<div class="hand-wrap" data-name="'+name+'"></div>'
-      + handsCtr
-      + unitsCtr
-      + ins
-      + '</div>'
-      + '</div>';
+      +'<div class="player-row">'
+      +  '<div class="player-head"><strong>'+name+'</strong>'+tag+'</div>'
+      +  (idx===state.bankerIndex?'<div class="muted">本局由其他玩家結果自動計算</div>':'<div class="handset-wrap" data-name="'+name+'"></div>'+handsCtr)
+      +'</div>';
   }
 
-  function renderHandsFor(name){
-    var wrap = document.querySelector('.hand-wrap[data-name="'+name+'"]');
-    if (!wrap) return;
-    var countEl = document.querySelector('.hands-count[data-name="'+name+'"]');
-    var n = 1;
-    if (state.mode==="bj"){
-      var raw = countEl ? countEl.value : "1";
-      var parsed = parseInt(raw,10);
-      if (!isFinite(parsed)) parsed = 1;
-      if (parsed < 1) parsed = 1;
-      if (parsed > MAX_HANDS) parsed = MAX_HANDS;
-      n = parsed;
-      if (countEl) countEl.value = String(n);
-    }
-    wrap.innerHTML = "";
-    for (var i=0;i<n;i++){
-      wrap.insertAdjacentHTML("beforeend", handHTML(name, i, n));
-    }
-    // Default select "D"
-    var segs = wrap.querySelectorAll(".seg");
-    for (var s=0;s<segs.length;s++){
-      var btnD = segs[s].querySelector('.segbtn[data-val="D"]');
-      if (btnD) btnD.classList.add("active");
-    }
-    // Bind seg buttons
-    var segBtns = wrap.querySelectorAll(".segbtn");
-    for (var b=0;b<segBtns.length;b++){
-      segBtns[b].addEventListener("click", (function(btn){
-        return function(){
-          var parent = btn.parentElement;
-          var all = parent.querySelectorAll(".segbtn");
-          for (var t=0;t<all.length;t++){ all[t].classList.remove("active"); }
-          btn.classList.add("active");
-        };
-      })(segBtns[b]));
-    }
+  function renderHandsetsFor(name){
+    var wrap=document.querySelector('.handset-wrap[data-name="'+name+'"]'); if(!wrap) return;
+    var countEl=document.querySelector('.hands-count[data-name="'+name+'"]');
+    var n=1; var raw=countEl?countEl.value:"1"; var parsed=parseInt(raw,10); if(!isFinite(parsed)||parsed<1) parsed=1; if(parsed>MAX_HANDS) parsed=MAX_HANDS; n=parsed; if(countEl) countEl.value=String(n);
+    wrap.innerHTML="";
+    for(var i=0;i<n;i++){ wrap.insertAdjacentHTML("beforeend", handsetHTML(name,i,n)); }
+    // default D
+    var segs=wrap.querySelectorAll(".seg");
+    for(var s=0;s<segs.length;s++){ var b=segs[s].querySelector('.segbtn[data-val="D"]'); if(b) b.classList.add("active"); }
+    // bind outcome
+    var segBtns=wrap.querySelectorAll(".segbtn");
+    for(var q=0;q<segBtns.length;q++){ segBtns[q].addEventListener("click",(function(btn){ return function(){ var p=btn.parentElement; var all=p.querySelectorAll(".segbtn"); for(var t=0;t<all.length;t++){ all[t].classList.remove("active"); } btn.classList.add("active"); };})(segBtns[q])); }
+    // bind units
+    var incs=wrap.querySelectorAll(".units-inc");
+    for(var a=0;a<incs.length;a++){ incs[a].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)) v=1; inp.value=String(v+1); };})(incs[a])); }
+    var decs=wrap.querySelectorAll(".units-dec");
+    for(var b=0;b<decs.length;b++){ decs[b].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<=1) v=2; inp.value=String(v-1); };})(decs[b])); }
+    var quicks=wrap.querySelectorAll(".units-quick");
+    for(var c=0;c<quicks.length;c++){ quicks[c].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); inp.value=String(parseInt(btn.dataset.q,10)); };})(quicks[c])); }
   }
 
   function renderPlayerInputs(){
-    var box = $("playerInputs"); box.innerHTML = "";
-    for (var i=0;i<state.players.length;i++){
-      var name = state.players[i];
-      var holder = document.createElement("div");
-      holder.innerHTML = playerRowHTML(name, i);
-      var row = holder.firstElementChild;
-      box.appendChild(row);
-      if (i !== state.bankerIndex){ renderHandsFor(name); }
+    var box=$("playerInputs"); box.innerHTML="";
+    for(var i=0;i<state.players.length;i++){
+      var name=state.players[i];
+      var holder=document.createElement("div"); holder.innerHTML=playerRowHTML(name,i);
+      var row=holder.firstElementChild; box.appendChild(row);
+      if(i!==state.bankerIndex){ renderHandsetsFor(name); }
     }
-    // bindings
-    var incs = box.querySelectorAll(".units-inc");
-    for (var a=0;a<incs.length;a++){
-      incs[a].addEventListener("click", (function(btn){
-        return function(){
-          var name = btn.dataset.name;
-          var i = box.querySelector('.units-input[data-name="'+name+'"]');
-          var v = parseInt(i.value||"1",10); if (!isFinite(v)) v=1; i.value = String(v+1);
-        };
-      })(incs[a]));
-    }
-    var decs = box.querySelectorAll(".units-dec");
-    for (var d=0;d<decs.length;d++){
-      decs[d].addEventListener("click", (function(btn){
-        return function(){
-          var name = btn.dataset.name;
-          var i = box.querySelector('.units-input[data-name="'+name+'"]');
-          var v = parseInt(i.value||"1",10); if (!isFinite(v) || v<=1) v=2; i.value = String(v-1);
-        };
-      })(decs[d]));
-    }
-    var quicks = box.querySelectorAll(".units-quick");
-    for (var q=0;q<quicks.length;q++){
-      quicks[q].addEventListener("click", (function(btn){
-        return function(){
-          var name = btn.dataset.name;
-          var i = box.querySelector('.units-input[data-name="'+name+'"]');
-          i.value = String(parseInt(btn.dataset.q,10));
-        };
-      })(quicks[q]));
-    }
-    var hincs = box.querySelectorAll(".hands-inc");
-    for (var hi=0;hi<hincs.length;hi++){
-      hincs[hi].addEventListener("click", (function(btn){
-        return function(){
-          var name = btn.dataset.name;
-          var c = box.querySelector('.hands-count[data-name="'+name+'"]');
-          var v = parseInt(c.value||"1",10); if (!isFinite(v)) v=1;
-          if (v < MAX_HANDS) v++; c.value = String(v); renderHandsFor(name);
-        };
-      })(hincs[hi]));
-    }
-    var hdecs = box.querySelectorAll(".hands-dec");
-    for (var hd=0;hd<hdecs.length;hd++){
-      hdecs[hd].addEventListener("click", (function(btn){
-        return function(){
-          var name = btn.dataset.name;
-          var c = box.querySelector('.hands-count[data-name="'+name+'"]');
-          var v = parseInt(c.value||"1",10); if (!isFinite(v)) v=1;
-          if (v > 1) v--; c.value = String(v); renderHandsFor(name);
-        };
-      })(hdecs[hd]));
-    }
-    var hcounts = box.querySelectorAll(".hands-count");
-    for (var hc=0;hc<hcounts.length;hc++){
-      hcounts[hc].addEventListener("change", (function(inp){
-        return function(){ var name = inp.dataset.name; renderHandsFor(name); };
-      })(hcounts[hc]));
-    }
+    var hincs=box.querySelectorAll(".hands-inc");
+    for(var hi=0;hi<hincs.length;hi++){ hincs[hi].addEventListener("click",(function(btn){ return function(){ var c=box.querySelector('.hands-count[data-name="'+btn.dataset.name+'"]'); var v=parseInt(c.value||"1",10); if(!isFinite(v)) v=1; if(v<MAX_HANDS) v++; c.value=String(v); renderHandsetsFor(btn.dataset.name); };})(hincs[hi])); }
+    var hdecs=box.querySelectorAll(".hands-dec");
+    for(var hd=0;hd<hdecs.length;hd++){ hdecs[hd].addEventListener("click",(function(btn){ return function(){ var c=box.querySelector('.hands-count[data-name="'+btn.dataset.name+'"]'); var v=parseInt(c.value||"1",10); if(!isFinite(v)) v=1; if(v>1) v--; c.value=String(v); renderHandsetsFor(btn.dataset.name); };})(hdecs[hd])); }
+    var hcounts=box.querySelectorAll(".hands-count");
+    for(var hc=0;hc<hcounts.length;hc++){ hcounts[hc].addEventListener("change",(function(inp){ return function(){ renderHandsetsFor(inp.dataset.name); };})(hcounts[hc])); }
   }
 
   function renderScoreboard(){
-    var tbody = $("scoreboard"); tbody.innerHTML = "";
-    for (var i=0;i<state.players.length;i++){
-      var name = state.players[i];
-      var role = (i===state.bankerIndex) ? "莊家" : "玩家";
-      var val = state.balances[name] || 0;
-      var tr = document.createElement("tr");
-      tr.innerHTML = '<td class="nowrap">'+name+'</td><td>'+role+'</td><td class="nowrap">'+val.toFixed(0)+'</td>';
+    var tbody=$("scoreboard"); tbody.innerHTML="";
+    for(var i=0;i<state.players.length;i++){
+      var name=state.players[i];
+      var role=(i===state.bankerIndex)?"莊家":"";
+      var val=state.balances[name]||0;
+      var tr=document.createElement("tr"); tr.innerHTML='<td>'+name+'</td><td>'+role+'</td><td>'+val.toFixed(0)+'</td>';
       tbody.appendChild(tr);
     }
   }
 
   function renderHistory(){
-    var box = $("history"); box.innerHTML = "";
-    function showR(r){ return r==="P" ? "D" : r; }
-    var hist = state.history.slice().reverse();
-    if (!hist.length){
-      var empty = document.createElement("div"); empty.className="muted"; empty.textContent="尚無記錄。"; box.appendChild(empty); return;
-    }
-    for (var i=0;i<hist.length;i++){
-      var h = hist[i]; var parts = [];
-      for (var name in h.results){
-        var obj = h.results[name];
-        var n = obj.hands ? obj.hands.length : 1;
-        if (n>1){
-          var tags = [];
-          for (var k=0;k<n;k++){ var o = obj.hands[k]; tags.push(showR(o.r)+(o.dbl?"(×2)":"")); }
-          var tag = name+':['+tags.join(",")+']×'+obj.u + (obj.ins?"[保]":"");
-          parts.push(tag);
-        } else {
-          var o0 = obj.hands ? obj.hands[0] : {r:obj.r, dbl:obj.dbl};
-          var tag2 = name+':'+showR(o0.r)+(o0.dbl?"(×2)":"") + (obj.u>1?'×'+obj.u:"") + (obj.ins?"[保]":"");
-          parts.push(tag2);
+    var box=$("history"); box.innerHTML="";
+    if(!state.history.length){ var empty=document.createElement("div"); empty.className="muted"; empty.textContent="尚無記錄。"; box.appendChild(empty); return; }
+    var hist=state.history.slice().reverse();
+    for(var i=0;i<hist.length;i++){
+      var h=hist[i]; var parts=[];
+      for(var name in h.results){
+        var obj=h.results[name]; var tags=[];
+        for(var k=0;k<obj.hands.length;k++){
+          var o=obj.hands[k];
+          tags.push(o.r+(o.dbl?"(×2)":"") + "×"+o.u + (o.ins?"[保]":""));
         }
+        parts.push(name+':[ '+tags.join(", ")+' ]');
       }
-      var line = document.createElement("div");
-      line.textContent = "#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+h.netBanker;
+      var line=document.createElement("div"); line.textContent="#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+h.netBanker;
       box.appendChild(line);
     }
   }
 
   function bjRate(){ return state.bj.bjPayout==="6:5" ? 6/5 : 3/2; }
-  function bjMult(r, dbl, isSplitLike){
-    if (r==="BJ") return isSplitLike ? 1 : bjRate();
-    if (r==="W") return dbl ? 2 : 1;
-    if (r==="L") return dbl ? -2 : -1;
-    return 0;
-  }
+  function bjMult(r,dbl,isSplitLike){ if(r==="BJ") return isSplitLike?1:bjRate(); if(r==="W") return dbl?2:1; if(r==="L") return dbl?-2:-1; return 0; }
 
   function snapshotResults(){
-    var res = {};
-    for (var i=0;i<state.players.length;i++){
-      var name = state.players[i];
-      if (i===state.bankerIndex) continue;
-      var uEl = document.querySelector('.units-input[data-name="'+name+'"]');
-      var u = parseInt(uEl ? uEl.value : "1",10); if (!isFinite(u) || u<1) u = 1;
-      if (state.mode==="bj"){
-        var countEl = document.querySelector('.hands-count[data-name="'+name+'"]');
-        var n = parseInt(countEl ? countEl.value : "1",10);
-        if (!isFinite(n) || n<1) n = 1; if (n>MAX_HANDS) n=MAX_HANDS;
-        var insEl = document.querySelector('.ins[data-name="'+name+'"]');
-        var hands = [];
-        for (var j=0;j<n;j++){
-          var segActive = document.querySelector('.segbtn.active[data-name="'+name+'__'+j+'"]');
-          var r = segActive ? segActive.dataset.val : "D";
-          if (r==="P") r="D";
-          var dblEl = document.querySelector('.dbl[data-name="'+name+'"][data-hand="'+j+'"]');
-          hands.push({ r: r, dbl: !!(dblEl && dblEl.checked) });
-        }
-        res[name] = { u: u, ins: !!(insEl && insEl.checked), hands: hands };
-      } else {
-        var segActive = document.querySelector('.segbtn.active[data-name="'+name+'__0"]') || document.querySelector('.segbtn.active[data-name="'+name+'"]');
-        var r0 = segActive ? segActive.dataset.val : "D";
-        if (r0==="P") r0="D";
-        res[name] = { u: u, hands: [{ r: r0, dbl: false }] };
+    var res={};
+    for(var i=0;i<state.players.length;i++){
+      if(i===state.bankerIndex) continue;
+      var name=state.players[i];
+      var handsEl=document.querySelectorAll('.handset-wrap[data-name="'+name+'"] .handset');
+      var hands=[];
+      for(var h=0;h<handsEl.length;h++){
+        var segActive=handsEl[h].querySelector(".segbtn.active");
+        var r=segActive?segActive.dataset.val:"D";
+        var dblEl=handsEl[h].querySelector(".dbl");
+        var unitsEl=handsEl[h].querySelector(".units-input");
+        var u=parseInt(unitsEl?unitsEl.value:"1",10); if(!isFinite(u)||u<1) u=1;
+        var insEl=handsEl[h].querySelector(".ins");
+        hands.push({ r:r, dbl:!!(dblEl&&dblEl.checked), u:u, ins: !!(insEl&&insEl.checked) });
       }
+      res[name]={ hands:hands };
     }
     return res;
   }
 
   function settleRound(results){
-    var stake = Number(state.stake) || 100;
-    var banker = state.players[state.bankerIndex];
-    var netBanker = 0;
+    var stake=Number(state.stake)||100;
+    var banker=state.players[state.bankerIndex];
+    var netBanker=0;
+    var dealerBJ=state.bj.dealerHasBJ;
+    var allowIns=state.bj.dealerUp==="A";
 
-    if (state.mode==="normal"){
-      for (var i=0;i<state.players.length;i++){
-        var name = state.players[i];
-        if (i===state.bankerIndex) continue;
-        var obj = results[name] || { hands:[{r:"D", dbl:false}], u:1 };
-        var base = stake * obj.u;
-        var r = obj.hands[0].r;
-        if (r==="W"){ state.balances[name]=(state.balances[name]||0)+base; netBanker -= base; }
-        else if (r==="L"){ state.balances[name]=(state.balances[name]||0)-base; netBanker += base; }
-      }
-    } else {
-      var dealerBJ = state.bj.dealerHasBJ;
-      var allowIns = state.bj.dealerUp==="A";
-      for (var j=0;j<state.players.length;j++){
-        var nname = state.players[j];
-        if (j===state.bankerIndex) continue;
-        var pobj = results[nname]; if (!pobj) continue;
-        var base2 = stake * pobj.u;
-        var delta = 0;
-        var nHands = pobj.hands.length;
-        if (dealerBJ){
-          if (!(nHands===1 && pobj.hands[0].r==="BJ")){
-            delta -= base2 * nHands;
-          }
-          if (allowIns && pobj.ins){ delta += base2; }
-        } else {
-          if (allowIns && pobj.ins){ delta -= base2*0.5; }
-          for (var h=0;h<nHands;h++){
-            var hand = pobj.hands[h];
-            var isSplitLike = (nHands>1);
-            delta += base2 * bjMult(hand.r, hand.dbl, isSplitLike);
-          }
+    for(var i=0;i<state.players.length;i++){
+      if(i===state.bankerIndex) continue;
+      var name=state.players[i];
+      var obj=results[name]; if(!obj) continue;
+      var delta=0;
+      var n=obj.hands.length;
+
+      if(dealerBJ){
+        // Main hands: all lose unless single-hand BJ (push)
+        for(var h=0;h<n;h++){
+          var hand=obj.hands[h];
+          if(!(n===1 && hand.r==="BJ")){ delta -= stake * hand.u; }
+          // Insurance pays +1x per insured hand
+          if(allowIns && hand.ins){ delta += stake * hand.u; }
         }
-        state.balances[nname] = (state.balances[nname] || 0) + delta;
-        netBanker -= delta;
+      } else {
+        // Insurance costs -0.5x per insured hand
+        if(allowIns){
+          for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } }
+        }
+        for(var h2=0;h2<n;h2++){
+          var hand2=obj.hands[h2];
+          delta += stake * hand2.u * bjMult(hand2.r, hand2.dbl, n>1);
+        }
       }
+
+      state.balances[name]=(state.balances[name]||0)+delta;
+      netBanker -= delta;
     }
-    state.balances[banker] = (state.balances[banker] || 0) + netBanker;
+
+    state.balances[banker]=(state.balances[banker]||0)+netBanker;
     return netBanker;
   }
 
-  function nextRoundRotateIfNeeded(){
-    state.bankerRoundCount += 1;
-    if (state.bankerRoundCount >= 3){ state.bankerRoundCount = 0; state.bankerIndex = (state.bankerIndex + 1) % state.players.length; }
-    state.round += 1;
-  }
+  function nextRoundRotateIfNeeded(){ state.bankerRoundCount+=1; if(state.bankerRoundCount>=3){ state.bankerRoundCount=0; state.bankerIndex=(state.bankerIndex+1)%state.players.length; } state.round+=1; }
 
   function recordRound(){
-    var results = snapshotResults();
-    var banker = state.players[state.bankerIndex];
-    var usedStake = state.stake;
-    var net = settleRound(results);
-    state.history.push({ round: state.round, banker: banker, results: results, netBanker: net, mode: state.mode, bj: { dealerUp: state.bj.dealerUp, dealerHasBJ: state.bj.dealerHasBJ, bjPayout: state.bj.bjPayout }, stake: usedStake });
+    var results=snapshotResults();
+    var banker=state.players[state.bankerIndex];
+    var net=settleRound(results);
+    state.history.push({ round:state.round, banker:banker, results:results, netBanker:net, bj:{ dealerUp:state.bj.dealerUp, dealerHasBJ:state.bj.dealerHasBJ, bjPayout:state.bj.bjPayout }, stake:state.stake });
     nextRoundRotateIfNeeded();
     save(); renderAll();
   }
 
   function undoRound(){
-    if (!state.history.length) return;
-    var last = state.history.pop();
-    if (state.bankerRoundCount===0){ state.bankerIndex = (state.bankerIndex - 1 + state.players.length) % state.players.length; state.bankerRoundCount = 2; }
+    if(!state.history.length) return;
+    var last=state.history.pop();
+    if(state.bankerRoundCount===0){ state.bankerIndex=(state.bankerIndex-1+state.players.length)%state.players.length; state.bankerRoundCount=2; }
     else { state.bankerRoundCount -= 1; }
     state.round -= 1;
 
-    var prevMode = last.mode || "normal";
-    var prevBJ = last.bj || state.bj;
-    var usedStake = last.stake || state.stake;
-    function computeDelta(obj){
-      var base = usedStake * obj.u;
-      if (prevMode==="normal"){
-        var r = obj.hands[0].r;
-        if (r==="W") return base;
-        if (r==="L") return -base;
-        return 0;
-      } else {
-        var allowIns = prevBJ.dealerUp==="A";
-        var dealerBJ = prevBJ.dealerHasBJ;
-        var rate = prevBJ.bjPayout==="6:5" ? 6/5 : 3/2;
-        function mult(r, dbl, isSplitLike){
-          if (r==="BJ") return isSplitLike ? 1 : rate;
-          if (r==="W") return dbl?2:1;
-          if (r==="L") return dbl?-2:-1;
-          return 0;
-        }
-        var d = 0;
-        var n = obj.hands.length;
-        if (dealerBJ){
-          if (!(n===1 && obj.hands[0].r==="BJ")) d -= base * n;
-          if (allowIns && obj.ins) d += base;
-        } else {
-          if (allowIns && obj.ins) d -= base*0.5;
-          for (var i=0;i<n;i++){ d += base * mult(obj.hands[i].r, obj.hands[i].dbl, n>1); }
-        }
-        return d;
-      }
-    }
+    var stake=last.stake||state.stake;
+    var dealerBJ=last.bj.dealerHasBJ;
+    var allowIns=last.bj.dealerUp==="A";
+    var rate=last.bj.bjPayout==="6:5"?6/5:3/2;
+    function mult(r,dbl,isSplitLike){ if(r==="BJ") return isSplitLike?1:rate; if(r==="W") return dbl?2:1; if(r==="L") return dbl?-2:-1; return 0; }
 
-    var netBanker = 0;
-    for (var name in last.results){
-      var d = computeDelta(last.results[name]);
-      state.balances[name] -= d;
-      netBanker += d;
+    var netBanker=0;
+    for(var name in last.results){
+      var obj=last.results[name]; var delta=0; var n=obj.hands.length;
+      if(dealerBJ){
+        for(var h=0;h<n;h++){ var hand=obj.hands[h]; if(!(n===1 && hand.r==="BJ")){ delta -= stake*hand.u; } if(allowIns && hand.ins){ delta += stake*hand.u; } }
+      } else {
+        if(allowIns){ for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } } }
+        for(var h2=0;h2<n;h2++){ var hand2=obj.hands[h2]; delta += stake*hand2.u*mult(hand2.r, hand2.dbl, n>1); }
+      }
+      state.balances[name] -= delta;
+      netBanker += delta;
     }
     state.balances[last.banker] -= netBanker;
-
     save(); renderAll();
   }
 
   function resetAll(){
-    if (!confirm("確定要重置所有記錄？此動作不可還原。")) return;
-    var playersCopy = state.players.slice();
-    state = {
-      players: playersCopy, stake: state.stake, round: 1, bankerIndex: 0, bankerRoundCount: 0,
-      balances: {}, history: [], mode: "normal",
-      bj: { dealerUp:"other", dealerHasBJ:false, bjPayout:"3:2" }
-    };
-    for (var i=0;i<state.players.length;i++){ state.balances[state.players[i]]=0; }
+    if(!confirm("確定要重置所有記錄？此動作不可還原。")) return;
+    var playersCopy=state.players.slice();
+    state={ players:playersCopy, stake:state.stake, round:1, bankerIndex:0, bankerRoundCount:0, balances:{}, history:[], bj:{ dealerUp:"other", dealerHasBJ:false, bjPayout: state.bj.bjPayout } };
+    for(var i=0;i<state.players.length;i++){ state.balances[state.players[i]]=0; }
     save(); renderAll();
   }
 
+  /* ---------- Bindings & Tabs ---------- */
   function bindGlobal(){
-    $("recordRound").addEventListener("click", recordRound);
-    $("undoRound").addEventListener("click", undoRound);
-    $("resetAll").addEventListener("click", resetAll);
-    $("saveStake").addEventListener("click", function(){
-      var val = Number($("stake").value); if(!isFinite(val)||val<=0) { alert("請輸入正確的數字"); return; }
-      state.stake = Math.round(val); save(); renderHeader();
+    $("tabPlay").addEventListener("click",function(){ $("tabPlay").classList.add("active"); $("tabSetup").classList.remove("active"); $("pagePlay").style.display=""; $("pageSetup").style.display="none"; });
+    $("tabSetup").addEventListener("click",function(){ $("tabSetup").classList.add("active"); $("tabPlay").classList.remove("active"); $("pagePlay").style.display="none"; $("pageSetup").style.display=""; });
+
+    $("recordRound").addEventListener("click",recordRound);
+    $("undoRound").addEventListener("click",undoRound);
+    $("resetAll").addEventListener("click",resetAll);
+
+    $("dealerUp").addEventListener("change",function(){ state.bj.dealerUp=this.value; save(); renderPlayerInputs(); });
+    $("dealerHasBJ").addEventListener("change",function(){ state.bj.dealerHasBJ=this.checked; save(); });
+
+    $("pay32").addEventListener("click",function(){ state.bj.bjPayout="3:2"; save(); renderHeader(); this.classList.add("active"); $("pay65").classList.remove("active"); });
+    $("pay65").addEventListener("click",function(){ state.bj.bjPayout="6:5"; save(); renderHeader(); this.classList.add("active"); $("pay32").classList.remove("active"); });
+
+    $("saveSetup").addEventListener("click",function(){ var val=Number($("stake").value); if(!isFinite(val)||val<=0){ alert("請輸入正確的數字"); return; } state.stake=Math.round(val); save(); renderHeader(); alert("已儲存設置"); });
+
+    $("addPlayer").addEventListener("click",function(){ var v=$("newPlayerName").value||""; v=capName(v); $("newPlayerName").value=""; if(!v) return; if(state.players.indexOf(v)!==-1){ alert("名字重複"); return; } state.players.push(v); state.balances[v]=0; save(); renderNameList(); renderPlayerInputs(); renderScoreboard(); });
+    $("loadDefault").addEventListener("click",function(){
+      if(!confirm("載入預設名單：Alan、PC、King、Eric、Kei、Ho、Kenneth？")) return;
+      var currentBankerName=state.players[state.bankerIndex];
+      state.players=DEFAULT_PLAYERS.slice();
+      var newIdx=state.players.indexOf(currentBankerName); state.bankerIndex=newIdx>=0?newIdx:0;
+      var newBalances={}; for(var i=0;i<state.players.length;i++){ var n=state.players[i]; newBalances[n]=state.balances[n]||0; }
+      state.balances=newBalances; save(); renderNameList(); renderPlayerInputs(); renderScoreboard(); renderHeader();
     });
-    $("addPlayer").addEventListener("click", function(){ var v=$("newPlayerName").value||""; $("newPlayerName").value=""; addPlayer(v); });
-    $("loadDefault").addEventListener("click", function(){
-      if (!confirm("載入預設 6 人名單（alan、pc、king、eric、kei、ho）？目前名單會被取代，但分數不變。")) return;
-      var currentBankerName = state.players[state.bankerIndex];
-      state.players = DEFAULT_PLAYERS.slice();
-      var newIdx = state.players.indexOf(currentBankerName);
-      state.bankerIndex = newIdx >= 0 ? newIdx : 0;
-      var newBalances = {}; for (var i=0;i<state.players.length;i++){ var n = state.players[i]; newBalances[n] = state.balances[n] || 0; }
-      state.balances = newBalances;
-      postPlayersChange();
-    });
-    $("modeNormal").addEventListener("click", function(){ state.mode="normal"; save(); renderAll(); });
-    $("modeBJ").addEventListener("click", function(){ state.mode="bj"; save(); renderAll(); });
-    $("pay32").addEventListener("click", function(){ state.bj.bjPayout="3:2"; save(); renderHeader(); });
-    $("pay65").addEventListener("click", function(){ state.bj.bjPayout="6:5"; save(); renderHeader(); });
-    $("dealerUp").addEventListener("change", function(e){ state.bj.dealerUp=e.target.value; save(); renderPlayerInputs(); });
-    $("dealerHasBJ").addEventListener("change", function(e){ state.bj.dealerHasBJ=e.target.checked; save(); });
   }
 
-  function renderAll(){ renderBanner(); renderHeader(); renderNameList(); renderPlayerInputs(); renderScoreboard(); renderHistory(); }
+  function renderAll(){ renderHeader(); renderPlayerInputs(); renderScoreboard(); renderHistory(); renderNameList(); }
 
-  // init
   load(); bindGlobal(); renderAll();
 })();
 </script>

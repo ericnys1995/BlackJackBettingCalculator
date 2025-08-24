@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>賭錢 Mark App v2.6（只限 21 點｜自設賠率／轉莊｜兼容版）</title>
+<title>賭錢 Mark App v2.7.1（只限 21 點｜自設賠率／轉莊｜先手BJ）</title>
 <style>
   :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK HK", "PingFang HK", "Microsoft JhengHei", Arial, sans-serif; }
   body { margin:0; padding:12px; background:#f7f7f9; color:#111827; }
@@ -26,7 +26,10 @@
   .seg > button { border:0; background:#fff; color:#111827; padding:6px 8px; }
   .seg > button.active { background:#111827; color:#fff; }
   .player-row { border:1px solid #e5e7eb; border-radius:12px; padding:8px; background:#fafafa; margin-bottom:8px; }
-  .player-head { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .player-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
+  .head-right { display:flex; align-items:center; gap:8px; }
+  .fixed-hand-ctrl { display:flex; gap:6px; align-items:center; }
+  .fixed-hand-ctrl .units { width:64px; text-align:center; }
   .handset-wrap { display:flex; gap:8px; flex-wrap:wrap; }
   .handset { border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:6px; display:flex; flex-direction:column; gap:6px; min-width:260px; }
   .hand-top { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
@@ -38,7 +41,7 @@
 </style>
 </head>
 <body>
-  <h1>賭錢 Mark App v2.6（只限 21 點）</h1>
+  <h1>賭錢 Mark App v2.7.1（只限 21 點）</h1>
 
   <div class="tabs">
     <button id="tabPlay" class="tabbtn active">Play</button>
@@ -54,7 +57,7 @@
           <span class="muted">(此莊還剩 <span id="bankerRoundLeft">3</span> 局；每 <span id="rotateEveryLabel">3</span> 局轉)</span>
         </div>
         <div class="spacer"></div>
-        <div class="muted">（W=贏、D=和、L=輸、BJ=Blackjack；每手可買保險）</div>
+        <div class="muted">（W=贏、D=和、L=輸、BJ=Blackjack、<span id="earlyHint" style="display:none;">先手BJ=2:1</span>；每手可買保險）</div>
       </div>
       <div class="toolbar" style="margin-top:6px;">
         <label>莊家明牌</label>
@@ -123,7 +126,7 @@
 
 <script>
 (function(){
-  var STORAGE_KEY = "banker_mark_app_v26";
+  var STORAGE_KEY = "banker_mark_app_v271";
   var DEFAULT_PLAYERS = ["Alan","PC","King","Eric","Kei","Ho","Kenneth"];
   var MAX_HANDS = 4;
 
@@ -135,16 +138,19 @@
 
   function capName(s){ if(!s) return s; if(s.toLowerCase()==="pc") return "PC"; return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); }
 
+  // Format helper: 1 decimal, avoid -0.0
+  function fmt1(n){ var v = Math.round(Number(n)*10)/10; if (Object.is(v,-0)) v = 0; return v.toFixed(1); }
+
   var state = {
     players: DEFAULT_PLAYERS.slice(),
     stake: 100,
     round: 1,
     bankerIndex: 0,
     bankerRoundCount: 0,
-    rotateEvery: 3,                  // ← 可在 Setup 改
+    rotateEvery: 3,
     balances: {},
     history: [],
-    bj: { dealerUp:"other", dealerHasBJ:false, bjNum:3, bjDen:2 } // ← 自設賠率 X:Y
+    bj: { dealerUp:"other", dealerHasBJ:false, bjNum:3, bjDen:2 }
   };
 
   function load(){ var saved=readStore(); if(saved&&typeof saved==="object"){ for(var k in saved){ state[k]=saved[k]; } } for(var i=0;i<state.players.length;i++){ var p=state.players[i]; if(typeof state.balances[p]!=="number") state.balances[p]=0; } }
@@ -199,6 +205,7 @@
     $("rotateEvery").value=state.rotateEvery;
 
     $("dealerUp").value=state.bj.dealerUp; $("dealerHasBJ").checked=state.bj.dealerHasBJ;
+    document.getElementById("earlyHint").style.display = (Number(state.bj.bjNum)===2 && Number(state.bj.bjDen)===1) ? "" : "none";
   }
 
   function handsetHTML(playerName, handIdx, handsCount){
@@ -206,6 +213,8 @@
     var vals=canBJ?["W","D","L","BJ"]:["W","D","L"];
     var seg=segOutcome(playerName+"__"+handIdx, vals);
     var showIns = $("dealerUp").value==="A";
+    var showEarly = canBJ && Number(state.bj.bjNum)===2 && Number(state.bj.bjDen)===1;
+    var earlyHTML = showEarly ? '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="earlybj" data-name="'+playerName+'" data-hand="'+handIdx+'" /> 先手BJ</label>' : '';
     var insHTML = showIns ? '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="ins" data-name="'+playerName+'" data-hand="'+handIdx+'" /> 保險</label>' : '';
     return ''
       +'<div class="handset">'
@@ -214,30 +223,34 @@
       +     seg
       +    '<label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="dbl" data-name="'+playerName+'" data-hand="'+handIdx+'" /> Double</label>'
       +     insHTML
+      +     earlyHTML
       +  '</div>'
       +  '<div class="row">'
       +    '<span class="muted">注數</span>'
       +    '<button class="small units-dec" data-name="'+playerName+'" data-hand="'+handIdx+'">-1</button>'
       +    '<input class="units units-input" data-name="'+playerName+'" data-hand="'+handIdx+'" type="number" value="1" min="1" step="1" />'
       +    '<button class="small units-inc" data-name="'+playerName+'" data-hand="'+handIdx+'">+1</button>'
-      +    '<div class="seg">'
-      +      '<button class="segchip units-x2" data-name="'+playerName+'" data-hand="'+handIdx+'">×2</button>'
-      +    '</div>'
+      +    '<div class="seg"><button class="segchip units-x2" data-name="'+playerName+'" data-hand="'+handIdx+'">×2</button></div>'
       +  '</div>'
       +'</div>';
   }
 
   function playerRowHTML(name, idx){
     var tag=(idx===state.bankerIndex)?' <span class="chip">莊家</span>':'';
-    var handsCtr=(idx===state.bankerIndex)?'':
-      '<div class="row"><span class="muted">手數</span>'
-      +'<button class="small hands-dec" data-name="'+name+'">-</button>'
-      +'<input class="units hands-count" data-name="'+name+'" type="number" value="1" min="1" max="'+MAX_HANDS+'" step="1" />'
-      +'<button class="small hands-inc" data-name="'+name+'">+</button></div>';
+    var handCtrl = (idx===state.bankerIndex) ? '' :
+      '<div class="fixed-hand-ctrl" data-name="'+name+'">'
+      + '<span class="muted">手數</span>'
+      + '<button class="small hands-dec" data-name="'+name+'">-</button>'
+      + '<input class="units hands-count" data-name="'+name+'" type="number" value="1" min="1" max="'+MAX_HANDS+'" step="1" />'
+      + '<button class="small hands-inc" data-name="'+name+'">+</button>'
+      + '</div>';
     return ''
       +'<div class="player-row">'
-      +  '<div class="player-head"><strong>'+name+'</strong>'+tag+'</div>'
-      +  (idx===state.bankerIndex?'<div class="muted">本局由其他玩家結果自動計算</div>':'<div class="handset-wrap" data-name="'+name+'"></div>'+handsCtr)
+      +  '<div class="player-head">'
+      +    '<div><strong>'+name+'</strong>'+tag+'</div>'
+      +    '<div class="head-right">'+handCtrl+'</div>'
+      +  '</div>'
+      +  (idx===state.bankerIndex?'<div class="muted">本局由其他玩家結果自動計算</div>':'<div class="handset-wrap" data-name="'+name+'"></div>')
       +'</div>';
   }
 
@@ -284,7 +297,7 @@
       var name=state.players[i];
       var role=(i===state.bankerIndex)?"莊家":"";
       var val=state.balances[name]||0;
-      var tr=document.createElement("tr"); tr.innerHTML='<td>'+name+'</td><td>'+role+'</td><td>'+val.toFixed(0)+'</td>';
+      var tr=document.createElement("tr"); tr.innerHTML='<td>'+name+'</td><td>'+role+'</td><td>'+fmt1(val)+'</td>';
       tbody.appendChild(tr);
     }
   }
@@ -299,16 +312,28 @@
         var obj=h.results[name]; var tags=[];
         for(var k=0;k<obj.hands.length;k++){
           var o=obj.hands[k];
-          tags.push(o.r+(o.dbl?"(×2)":"") + "×"+o.u + (o.ins?"[保]":""));
+          var tag = o.r+(o.dbl?"(×2)":"") + "×"+o.u + (o.ins?"[保]":"") + (o.early?"[先手]":"");
+          tags.push(tag);
         }
         parts.push(name+':[ '+tags.join(", ")+' ]');
       }
-      var line=document.createElement("div"); line.textContent="#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+h.netBanker+" | BJ="+h.bjNum+':'+h.bjDen;
+      var line=document.createElement("div"); line.textContent="#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+fmt1(h.netBanker)+" | BJ="+h.bjNum+':'+h.bjDen;
       box.appendChild(line);
     }
   }
 
-  function bjMult(r,dbl,isSplitLike){ if(r==="BJ") return isSplitLike?1:bjRate(); if(r==="W") return dbl?2:1; if(r==="L") return dbl?-2:-1; return 0; }
+  function bjMultForHand(hand, isSplitLike){
+    if (hand.r==="BJ"){
+      if (isSplitLike) return 1; // split BJ = 1x
+      if (Number(state.bj.bjNum)===2 && Number(state.bj.bjDen)===1){
+        return hand.early ? 2 : 1; // 2:1 時：先手=2:1，普通=1:1
+      }
+      return bjRate(); // 其他比率
+    }
+    if (hand.r==="W") return hand.dbl ? 2 : 1;
+    if (hand.r==="L") return hand.dbl ? -2 : -1;
+    return 0; // D
+  }
 
   function snapshotResults(){
     var res={};
@@ -324,7 +349,8 @@
         var unitsEl=handsEl[h].querySelector(".units-input");
         var u=parseInt(unitsEl?unitsEl.value:"1",10); if(!isFinite(u)||u<1) u=1;
         var insEl=handsEl[h].querySelector(".ins");
-        hands.push({ r:r, dbl:!!(dblEl&&dblEl.checked), u:u, ins: !!(insEl&&insEl.checked) });
+        var earlyEl=handsEl[h].querySelector(".earlybj");
+        hands.push({ r:r, dbl:!!(dblEl&&dblEl.checked), u:u, ins: !!(insEl&&insEl.checked), early: !!(earlyEl&&earlyEl.checked) });
       }
       res[name]={ hands:hands };
     }
@@ -337,7 +363,6 @@
     var netBanker=0;
     var dealerBJ=state.bj.dealerHasBJ;
     var allowIns=state.bj.dealerUp==="A";
-    var rate=bjRate();
 
     for(var i=0;i<state.players.length;i++){
       if(i===state.bankerIndex) continue;
@@ -353,12 +378,10 @@
           if(allowIns && hand.ins){ delta += stake * hand.u; }
         }
       } else {
-        if(allowIns){
-          for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } }
-        }
+        if(allowIns){ for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } } }
         for(var h2=0;h2<n;h2++){
           var hand2=obj.hands[h2];
-          delta += stake * hand2.u * (hand2.r==="BJ" ? (n>1?1:rate) : (hand2.r==="W" ? (hand2.dbl?2:1) : (hand2.r==="L" ? (hand2.dbl?-2:-1) : 0)));
+          delta += stake * hand2.u * bjMultForHand(hand2, n>1);
         }
       }
 
@@ -396,19 +419,29 @@
     state.round -= 1;
 
     var stake=last.stake||state.stake;
-    var rate=(last.bjNum&&last.bjDen)?(last.bjNum/last.bjDen):bjRate();
+    var bjNum=last.bjNum||state.bj.bjNum, bjDen=last.bjDen||state.bj.bjDen;
+    function multFor(hand,isSplitLike){
+      if(hand.r==="BJ"){
+        if(isSplitLike) return 1;
+        if(Number(bjNum)===2 && Number(bjDen)===1){ return hand.early?2:1; }
+        var rate = (bjDen>0)?(bjNum/bjDen):1.5;
+        return rate;
+      }
+      if(hand.r==="W") return hand.dbl?2:1;
+      if(hand.r==="L") return hand.dbl?-2:-1;
+      return 0;
+    }
 
     var netBanker=0;
     for(var name in last.results){
       var obj=last.results[name]; var delta=0; var n=obj.hands.length;
-      // dealerUp/BJ 沒紀錄於 v2.6 的 history；為簡化撤銷，我們按「當前設置」dealerUp / dealerHasBJ 反推
       var dealerBJNow=state.bj.dealerHasBJ;
       var allowInsNow=state.bj.dealerUp==="A";
       if(dealerBJNow){
         for(var h=0;h<n;h++){ var hand=obj.hands[h]; if(!(n===1 && hand.r==="BJ")){ delta -= stake*hand.u; } if(allowInsNow && hand.ins){ delta += stake*hand.u; } }
       }else{
         if(allowInsNow){ for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } } }
-        for(var h2=0;h2<n;h2++){ var hand2=obj.hands[h2]; var mult = (hand2.r==="BJ") ? (n>1?1:rate) : (hand2.r==="W" ? (hand2.dbl?2:1) : (hand2.r==="L" ? (hand2.dbl?-2:-1) : 0)); delta += stake*hand2.u*mult; }
+        for(var h2=0;h2<n;h2++){ var hand2=obj.hands[h2]; delta += stake*hand2.u*multFor(hand2, n>1); }
       }
       state.balances[name] -= delta;
       netBanker += delta;
@@ -445,9 +478,8 @@
       state.stake=Math.round(stakeVal);
       state.bj.bjNum=Math.round(n); state.bj.bjDen=Math.round(d);
       state.rotateEvery=Math.round(rot);
-      // 如果目前剩餘局數 > 新的 rotateEvery，要調整顯示
       if(state.bankerRoundCount>=state.rotateEvery){ state.bankerRoundCount = state.rotateEvery-1; }
-      save(); renderHeader(); alert("已儲存設置");
+      save(); renderHeader(); renderPlayerInputs(); alert("已儲存設置");
     });
 
     $("addPlayer").addEventListener("click",function(){ var v=$("newPlayerName").value||""; v=capName(v); $("newPlayerName").value=""; if(!v) return; if(state.players.indexOf(v)!==-1){ alert("名字重複"); return; } state.players.push(v); state.balances[v]=0; save(); renderNameList(); renderPlayerInputs(); renderScoreboard(); });

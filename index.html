@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>賭錢 Mark App v2.7.7（21 點｜BJ=賠率:1｜保險只受 A/BJ 影響）</title>
+<title>賭錢 Mark App v2.7.8（21 點｜BJ=賠率:1｜精準撤銷）</title>
 <style>
   :root { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans CJK HK","PingFang HK","Microsoft JhengHei",Arial,sans-serif; }
   body { margin:0; padding:12px; background:#f7f7f9; color:#111827; }
@@ -17,7 +17,8 @@
   .chip { padding:3px 8px; border:1px solid #d1d5db; border-radius:9999px; background:#f3f4f6; font-size:12px; }
   .muted { color:#6b7280; }
   input[type="text"], input[type="number"] { padding:8px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; }
-  input.units { width:70px; text-align:center; }
+  input.units { width:70px; text-align:center; }           /* Setup頁（Stake/BJ/Rotate） */
+  .handset .units-input { width:56px; text-align:center; } /* ▶ 注碼輸入變窄 */
   button { padding:8px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:10px; cursor:pointer; font-size:14px; }
   button.secondary { background:#fff; color:#111827; border-color:#d1d5db; }
   button.destructive { background:#ef4444; border-color:#ef4444; }
@@ -41,7 +42,7 @@
 </style>
 </head>
 <body>
-  <h1>賭錢 Mark App v2.7.7（只限 21 點）</h1>
+  <h1>賭錢 Mark App v2.7.8（只限 21 點）</h1>
 
   <div class="tabs">
     <button id="tabPlay" class="tabbtn active">Play</button>
@@ -89,7 +90,7 @@
     <div class="card">
       <div class="toolbar">
         <label>每注單位</label>
-        <input id="stake" type="number" value="100" min="1" step="1" class="units" />
+        <input id="stake" type="number" value="10" min="1" step="1" class="units" />   <!-- ▶ 預設 10 -->
 
         <label style="margin-left:10px;">BJ 賠率</label>
         <input id="bjNum" type="number" value="2" min="1" step="1" class="units" />
@@ -119,10 +120,11 @@
 
 <script>
 (function(){
-  var STORAGE_KEY = "banker_mark_app_v277";
+  var STORAGE_KEY = "banker_mark_app_v278";
   var DEFAULT_PLAYERS = ["Alan","PC","King","Eric","Kei","Ho","Kenneth"];
   var MAX_HANDS = 4;
 
+  // storage fallback
   var memStore = {};
   function readStore(){ try{ var raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return memStore[STORAGE_KEY]?JSON.parse(memStore[STORAGE_KEY]):null; } }
   function writeStore(obj){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }catch(e){ memStore[STORAGE_KEY]=JSON.stringify(obj); } }
@@ -132,13 +134,14 @@
 
   var state = {
     players: DEFAULT_PLAYERS.slice(),
-    stake: 100,
+    stake: 10,                 // ▶ 預設 10
     round: 1,
     bankerIndex: 0,
     bankerRoundCount: 0,
     rotateEvery: 3,
     balances: {},
     history: [],
+    // 只影響保險的兩個 checkbox 仍保留
     bj: { dealerA:false, dealerHasBJ:false, bjNum:2, bjDen:1 } // bjDen 固定 1
   };
 
@@ -151,6 +154,12 @@
     var vals=["W","D","L"], html='<div class="seg">';
     for(var i=0;i<vals.length;i++){ html+='<button class="segbtn" data-name="'+name+'" data-val="'+vals[i]+'">'+vals[i]+'</button>'; }
     html+='</div>'; return html;
+  }
+  function activateOutcomeIn(handsetEl, val){
+    var seg=handsetEl.querySelector(".seg"); if(!seg) return;
+    var all=seg.querySelectorAll(".segbtn");
+    for(var i=0;i<all.length;i++) all[i].classList.remove("active");
+    var target=seg.querySelector('.segbtn[data-val="'+val+'"]'); if(target) target.classList.add("active");
   }
 
   /* ---------- Setup page ---------- */
@@ -205,9 +214,8 @@
       + '</div>';
   }
 
-  function handsetHTML(playerName, handIdx, handsCount){
+  function handsetHTML(playerName, handIdx){
     var vals=segOutcome(playerName+"__"+handIdx);
-    // 所有手都顯示 BJ 勾選；放在下注行 ×2 右邊
     var bjHTML = '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="earlybj" data-name="'+playerName+'" data-hand="'+handIdx+'" /> BJ</label>';
     return ''
       +'<div class="handset">'
@@ -220,7 +228,7 @@
       +  '<div class="row">'
       +    '<span class="muted">注數</span>'
       +    '<button class="small units-dec" data-name="'+playerName+'" data-hand="'+handIdx+'">-1</button>'
-      +    '<input class="units units-input" data-name="'+playerName+'" data-hand="'+handIdx+'" type="number" value="1" min="1" step="1" />'
+      +    '<input class="units-input" data-name="'+playerName+'" data-hand="'+handIdx+'" type="number" value="1" min="1" step="1" />'
       +    '<button class="small units-inc" data-name="'+playerName+'" data-hand="'+handIdx+'">+1</button>'
       +    '<div class="seg"><button class="segchip units-x2" data-name="'+playerName+'" data-hand="'+handIdx+'">×2</button></div>'
       +     bjHTML
@@ -255,20 +263,27 @@
     var countEl=document.querySelector('.hands-count[data-name="'+name+'"]');
     var n=1; var raw=countEl?countEl.value:"1"; var parsed=parseInt(raw,10); if(!isFinite(parsed)||parsed<1) parsed=1; if(parsed>MAX_HANDS) parsed=MAX_HANDS; n=parsed; if(countEl) countEl.value=String(n);
     wrap.innerHTML="";
-    for(var i=0;i<n;i++){ wrap.insertAdjacentHTML("beforeend", handsetHTML(name,i,n)); }
+    for(var i=0;i<n;i++){ wrap.insertAdjacentHTML("beforeend", handsetHTML(name,i)); }
     // 預設 D
-    var btns=wrap.querySelectorAll(".seg");
-    for(var s=0;s<btns.length;s++){ var b=btns[s].querySelector('.segbtn[data-val="D"]'); if(b) b.classList.add("active"); }
+    var btnGroups=wrap.querySelectorAll(".seg");
+    for(var s=0;s<btnGroups.length;s++){ var b=btnGroups[s].querySelector('.segbtn[data-val="D"]'); if(b) b.classList.add("active"); }
     // outcome buttons
     var segBtns=wrap.querySelectorAll(".segbtn");
     for(var q=0;q<segBtns.length;q++){ segBtns[q].addEventListener("click",(function(btn){ return function(){ var p=btn.parentElement; var all=p.querySelectorAll(".segbtn"); for(var t=0;t<all.length;t++){ all[t].classList.remove("active"); } btn.classList.add("active"); };})(segBtns[q])); }
-    // 注碼
+    // 注碼控制
     var incs=wrap.querySelectorAll(".units-inc");
-    for(var a=0;a<incs.length;a++){ incs[a].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)) v=1; inp.value=String(v+1); };})(incs[a])); }
+    for(var a=0;a<incs.length;a++){ incs[a].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); if(!inp) inp=wrap.querySelector('input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)) v=1; inp.value=String(v+1); };})(incs[a])); }
     var decs=wrap.querySelectorAll(".units-dec");
-    for(var b=0;b<decs.length;b++){ decs[b].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<=1) v=2; inp.value=String(v-1); };})(decs[b])); }
+    for(var b=0;b<decs.length;b++){ decs[b].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); if(!inp) inp=wrap.querySelector('input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<=1) v=2; inp.value=String(v-1); };})(decs[b])); }
     var x2s=wrap.querySelectorAll(".units-x2");
-    for(var c=0;c<x2s.length;c++){ x2s[c].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<1) v=1; inp.value=String(v*2); };})(x2s[c])); }
+    for(var c=0;c<x2s.length;c++){ x2s[c].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); if(!inp) inp=wrap.querySelector('input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<1) v=1; inp.value=String(v*2); };})(x2s[c])); }
+    // ▶ BJ 勾選時，自動把 outcome 置為 W
+    var bjChecks=wrap.querySelectorAll(".earlybj");
+    for(var d=0;d<bjChecks.length;d++){
+      bjChecks[d].addEventListener("change", function(){
+        if(this.checked){ activateOutcomeIn(this.closest(".handset"), "W"); }
+      });
+    }
   }
 
   function renderPlayerInputs(){
@@ -319,22 +334,86 @@
         }
         parts.push(name+':[ '+tags.join(", ")+' ]');
       }
-      var line=document.createElement("div"); line.textContent="#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+fmt1(h.netBanker)+" | BJ="+h.bjNum+':1';
+      var line=document.createElement("div"); line.textContent="#"+h.round+" 莊="+h.banker+" | "+parts.join(" ")+" | 庄淨="+(h.netBanker>=0?"+":"")+fmt1(h.netBanker)+" | BJ="+h.params.bjNum+':1';
       box.appendChild(line);
     }
   }
 
-  /* === Multiplier 規則 ===
-     - 勾 BJ → 直接用賠率:1（不受 Double）
-     - 沒勾 BJ → W=+1 / L=−1 / D=0；Double 令 |mult|×2
-     - 保險：只在 dealerA=true 時生效；dealerHasBJ ? +1 : −0.5
-     - 莊家是否 BJ 不影響 W/D/L/BJ 結算（只影響保險）
-  */
-  function multForHand(hand){
-    if (hand.early) return bjRate(); // BJ 勾選，直接賠率:1
-    if (hand.r==="W") return hand.dbl ? 2 : 1;
-    if (hand.r==="L") return hand.dbl ? -2 : -1;
-    return 0; // D
+  /* ===== 統一計算（用於記錄 & 撤銷，確保對稱） ===== */
+  function computeDeltas(results, params){
+    var stake=params.stake, bjNum=params.bjNum, dealerA=params.dealerA, dealerBJ=params.dealerBJ;
+    function bjRateByNum(){ return (bjNum>0?bjNum:2); }
+    function multForHand(hand){
+      if (hand.early) return bjRateByNum(); // 勾 BJ → 賠率:1（不受 Double）
+      if (hand.r==="W") return hand.dbl ? 2 : 1;
+      if (hand.r==="L") return hand.dbl ? -2 : -1;
+      return 0; // D
+    }
+    var deltas={}, netBanker=0;
+    for(var name in results){
+      var obj=results[name]; if(!obj) continue;
+      var delta=0;
+      // 先處理保險（只在明牌 A）
+      if(dealerA){
+        for(var h0=0; h0<obj.hands.length; h0++){
+          var hh=obj.hands[h0];
+          if(hh.ins) delta += stake * hh.u * (dealerBJ ? 1 : -0.5);
+        }
+      }
+      // 正常輸贏
+      for(var h=0; h<obj.hands.length; h++){
+        var hand=obj.hands[h];
+        delta += stake * hand.u * multForHand(hand);
+      }
+      deltas[name]=delta;
+      netBanker -= delta;
+    }
+    return { deltas: deltas, netBanker: netBanker };
+  }
+
+  function recordRound(){
+    var results=snapshotResults();
+    var params={ stake: state.stake, bjNum: state.bj.bjNum, dealerA: state.bj.dealerA, dealerBJ: state.bj.dealerHasBJ };
+    var calc=computeDeltas(results, params);
+
+    // 套用
+    for(var name in calc.deltas){ state.balances[name]=(state.balances[name]||0)+calc.deltas[name]; }
+    var banker=state.players[state.bankerIndex];
+    state.balances[banker]=(state.balances[banker]||0)+calc.netBanker;
+
+    state.history.push({ round:state.round, banker:banker, results:results, netBanker:calc.netBanker, params:params });
+
+    // 輪莊 & 下一局
+    state.bankerRoundCount += 1;
+    if(state.bankerRoundCount >= state.rotateEvery){ state.bankerRoundCount = 0; state.bankerIndex = (state.bankerIndex + 1) % state.players.length; }
+    state.round += 1;
+
+    save(); renderAll();
+  }
+
+  function undoRound(){
+    if(!state.history.length) return;
+    // 先回到上一局的莊家/回合
+    if(state.bankerRoundCount===0){ state.bankerIndex=(state.bankerIndex-1+state.players.length)%state.players.length; state.bankerRoundCount=state.rotateEvery-1; }
+    else { state.bankerRoundCount -= 1; }
+    state.round -= 1;
+
+    var last=state.history.pop(); // 取出上一局資料（含當時 params）
+    var calc=computeDeltas(last.results, last.params); // 重新算出當時的變動
+
+    // 反向套用
+    for(var name in calc.deltas){ state.balances[name]-=calc.deltas[name]; }
+    state.balances[last.banker]-=calc.netBanker;
+
+    save(); renderAll();
+  }
+
+  function resetAll(){
+    if(!confirm("確定要重置所有記錄？此動作不可還原。")) return;
+    var playersCopy=state.players.slice();
+    state={ players:playersCopy, stake:state.stake, round:1, bankerIndex:0, bankerRoundCount:0, rotateEvery: state.rotateEvery, balances:{}, history:[], bj:{ dealerA:false, dealerHasBJ:false, bjNum: state.bj.bjNum, bjDen:1 } };
+    for(var i=0;i<state.players.length;i++){ state.balances[state.players[i]]=0; }
+    save(); renderAll();
   }
 
   function snapshotResults(){
@@ -348,7 +427,7 @@
         var segActive=handsEl[h].querySelector(".segbtn.active");
         var r=segActive?segActive.dataset.val:"D";
         var dblEl=handsEl[h].querySelector(".dbl");
-        var unitsEl=handsEl[h].querySelector(".units-input");
+        var unitsEl=handsEl[h].querySelector(".units-input") || handsEl[h].querySelector('input[type="number"]');
         var u=parseInt(unitsEl?unitsEl.value:"1",10); if(!isFinite(u)||u<1) u=1;
         var insEl=handsEl[h].querySelector(".ins");
         var earlyEl=handsEl[h].querySelector(".earlybj"); // 勾=先手BJ
@@ -357,104 +436,6 @@
       res[name]={ hands:hands };
     }
     return res;
-  }
-
-  function settleRound(results){
-    var stake=Number(state.stake)||100;
-    var banker=state.players[state.bankerIndex];
-    var netBanker=0;
-    var allowIns=state.bj.dealerA;
-    var dealerBJ=state.bj.dealerHasBJ;
-
-    for(var i=0;i<state.players.length;i++){
-      if(i===state.bankerIndex) continue;
-      var name=state.players[i];
-      var obj=results[name]; if(!obj) continue;
-      var delta=0;
-
-      // 保險先處理（只在明牌 A）
-      if(allowIns){
-        for(var h0=0;h0<obj.hands.length;h0++){
-          var hh=obj.hands[h0];
-          if(hh.ins){
-            delta += stake * hh.u * (dealerBJ ? 1 : -0.5);
-          }
-        }
-      }
-
-      // 正常輸贏
-      for(var h=0;h<obj.hands.length;h++){
-        var hand=obj.hands[h];
-        delta += stake * hand.u * multForHand(hand);
-      }
-
-      state.balances[name]=(state.balances[name]||0)+delta;
-      netBanker -= delta;
-    }
-
-    state.balances[banker]=(state.balances[banker]||0)+netBanker;
-    return netBanker;
-  }
-
-  function nextRoundRotateIfNeeded(){
-    state.bankerRoundCount += 1;
-    if(state.bankerRoundCount >= state.rotateEvery){
-      state.bankerRoundCount = 0;
-      state.bankerIndex = (state.bankerIndex + 1) % state.players.length;
-    }
-    state.round += 1;
-  }
-
-  function recordRound(){
-    var results=snapshotResults();
-    var banker=state.players[state.bankerIndex];
-    var net=settleRound(results);
-    state.history.push({ round:state.round, banker:banker, results:results, netBanker:net, stake:state.stake, bjNum:state.bj.bjNum });
-    nextRoundRotateIfNeeded();
-    save(); renderAll();
-  }
-
-  function undoRound(){
-    if(!state.history.length) return;
-    var last=state.history.pop();
-    if(state.bankerRoundCount===0){ state.bankerIndex=(state.bankerIndex-1+state.players.length)%state.players.length; state.bankerRoundCount=state.rotateEvery-1; }
-    else { state.bankerRoundCount -= 1; }
-    state.round -= 1;
-
-    // 根據當前 A/BJ 狀態重算上一局再反向（簡化）
-    var stake=last.stake||state.stake;
-    var allowIns=state.bj.dealerA;
-    var dealerBJ=state.bj.dealerHasBJ;
-
-    var netBanker=0;
-    for(var name in last.results){
-      var obj=last.results[name]; var delta=0;
-
-      if(allowIns){
-        for(var h0=0;h0<obj.hands.length;h0++){
-          var hh=obj.hands[h0];
-          if(hh.ins){ delta += stake * hh.u * (dealerBJ ? 1 : -0.5); }
-        }
-      }
-      for(var h=0;h<obj.hands.length;h++){
-        var hand=obj.hands[h];
-        var m = hand.early ? (last.bjNum||state.bj.bjNum) : (hand.r==="W" ? (hand.dbl?2:1) : hand.r==="L" ? (hand.dbl?-2:-1) : 0);
-        delta += stake * hand.u * m;
-      }
-
-      state.balances[name] -= delta; // 反向
-      netBanker += delta;
-    }
-    state.balances[last.banker] -= netBanker;
-    save(); renderAll();
-  }
-
-  function resetAll(){
-    if(!confirm("確定要重置所有記錄？此動作不可還原。")) return;
-    var playersCopy=state.players.slice();
-    state={ players:playersCopy, stake:state.stake, round:1, bankerIndex:0, bankerRoundCount:0, rotateEvery: state.rotateEvery, balances:{}, history:[], bj:{ dealerA:false, dealerHasBJ:false, bjNum: state.bj.bjNum, bjDen:1 } };
-    for(var i=0;i<state.players.length;i++){ state.balances[state.players[i]]=0; }
-    save(); renderAll();
   }
 
   /* ---------- Bindings & Tabs ---------- */

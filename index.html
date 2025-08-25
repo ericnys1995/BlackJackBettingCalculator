@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>賭錢 Mark App v2.7.5（21 點｜BJ 規則更新）</title>
+<title>賭錢 Mark App v2.7.7（21 點｜BJ=賠率:1｜保險只受 A/BJ 影響）</title>
 <style>
   :root { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans CJK HK","PingFang HK","Microsoft JhengHei",Arial,sans-serif; }
   body { margin:0; padding:12px; background:#f7f7f9; color:#111827; }
@@ -41,7 +41,7 @@
 </style>
 </head>
 <body>
-  <h1>賭錢 Mark App v2.7.5（只限 21 點）</h1>
+  <h1>賭錢 Mark App v2.7.7（只限 21 點）</h1>
 
   <div class="tabs">
     <button id="tabPlay" class="tabbtn active">Play</button>
@@ -57,7 +57,7 @@
           <span class="muted">(此莊還剩 <span id="bankerRoundLeft">3</span> 局；每 <span id="rotateEveryLabel">3</span> 局轉)</span>
         </div>
         <div class="spacer"></div>
-        <div class="muted">（W=贏、D=和、L=輸；勾 **BJ** 代表先手 BJ 依賠率:1；每手可買保險）</div>
+        <div class="muted">（W=贏、D=和、L=輸；勾 <b>BJ</b> = 以賠率:1 計；保險只受「明牌A / 莊家BJ」影響）</div>
       </div>
     </div>
 
@@ -119,11 +119,10 @@
 
 <script>
 (function(){
-  var STORAGE_KEY = "banker_mark_app_v275";
+  var STORAGE_KEY = "banker_mark_app_v277";
   var DEFAULT_PLAYERS = ["Alan","PC","King","Eric","Kei","Ho","Kenneth"];
   var MAX_HANDS = 4;
 
-  // storage fallback
   var memStore = {};
   function readStore(){ try{ var raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return memStore[STORAGE_KEY]?JSON.parse(memStore[STORAGE_KEY]):null; } }
   function writeStore(obj){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }catch(e){ memStore[STORAGE_KEY]=JSON.stringify(obj); } }
@@ -148,7 +147,7 @@
 
   function bjRate(){ var n=Number(state.bj.bjNum)||2; return n/1; } // 後面固定 1
   function handLabel(i){ return ["A","B","C","D"][i]||String(i+1); }
-  function segOutcome(name){ // 只剩 W / D / L
+  function segOutcome(name){ // W / D / L
     var vals=["W","D","L"], html='<div class="seg">';
     for(var i=0;i<vals.length;i++){ html+='<button class="segbtn" data-name="'+name+'" data-val="'+vals[i]+'">'+vals[i]+'</button>'; }
     html+='</div>'; return html;
@@ -208,9 +207,8 @@
 
   function handsetHTML(playerName, handIdx, handsCount){
     var vals=segOutcome(playerName+"__"+handIdx);
-    // 單手時顯示 BJ 勾選；放在下注行 ×2 右邊
-    var showBJ = (handsCount===1);
-    var bjHTML = showBJ ? '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="earlybj" data-name="'+playerName+'" data-hand="'+handIdx+'" /> BJ</label>' : '';
+    // 所有手都顯示 BJ 勾選；放在下注行 ×2 右邊
+    var bjHTML = '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="earlybj" data-name="'+playerName+'" data-hand="'+handIdx+'" /> BJ</label>';
     return ''
       +'<div class="handset">'
       +  '<div class="hand-top">'
@@ -326,22 +324,14 @@
     }
   }
 
-  /* === Multiplier 邏輯 ===
-     - 非莊 BJ：
-       * 勾 BJ（單手）→ 賠率:1
-       * 其他 → W=±1、L=∓1、D=0；Double 把 |mult|×2
-       * Split 狀態下勾 BJ → 1x（視作一般勝），不受 Double
-     - 莊家 BJ：
-       * 手上標記 D → 0（和）
-       * 單手 + 勾 BJ → 賠率:1（覆蓋莊家 BJ）
-       * 其餘 → 輸 1x（不理 Double）
-     - 保險：dealerA=true 時，莊家 BJ +1x；否則扣 0.5x
+  /* === Multiplier 規則 ===
+     - 勾 BJ → 直接用賠率:1（不受 Double）
+     - 沒勾 BJ → W=+1 / L=−1 / D=0；Double 令 |mult|×2
+     - 保險：只在 dealerA=true 時生效；dealerHasBJ ? +1 : −0.5
+     - 莊家是否 BJ 不影響 W/D/L/BJ 結算（只影響保險）
   */
-  function multNonDealerBJ(hand, isSplitLike){
-    if (hand.early){ // 勾了 BJ
-      if (isSplitLike) return 1; // split 時 BJ 視作 1x
-      return bjRate();          // 單手 → 賠率:1
-    }
+  function multForHand(hand){
+    if (hand.early) return bjRate(); // BJ 勾選，直接賠率:1
     if (hand.r==="W") return hand.dbl ? 2 : 1;
     if (hand.r==="L") return hand.dbl ? -2 : -1;
     return 0; // D
@@ -361,7 +351,7 @@
         var unitsEl=handsEl[h].querySelector(".units-input");
         var u=parseInt(unitsEl?unitsEl.value:"1",10); if(!isFinite(u)||u<1) u=1;
         var insEl=handsEl[h].querySelector(".ins");
-        var earlyEl=handsEl[h].querySelector(".earlybj"); // 這裡 early 代表「BJ 勾選」
+        var earlyEl=handsEl[h].querySelector(".earlybj"); // 勾=先手BJ
         hands.push({ r:r, dbl:!!(dblEl&&dblEl.checked), u:u, ins: !!(insEl&&insEl.checked), early: !!(earlyEl&&earlyEl.checked) });
       }
       res[name]={ hands:hands };
@@ -373,34 +363,29 @@
     var stake=Number(state.stake)||100;
     var banker=state.players[state.bankerIndex];
     var netBanker=0;
-    var dealerBJ=state.bj.dealerHasBJ;
     var allowIns=state.bj.dealerA;
+    var dealerBJ=state.bj.dealerHasBJ;
 
     for(var i=0;i<state.players.length;i++){
       if(i===state.bankerIndex) continue;
       var name=state.players[i];
       var obj=results[name]; if(!obj) continue;
       var delta=0;
-      var n=obj.hands.length;
 
-      if(dealerBJ){
-        for(var h=0;h<n;h++){
-          var hand=obj.hands[h];
-          if (hand.r==="D"){ // 和就和，不輸錢
-            delta += 0;
-          } else if (n===1 && hand.early){ // 單手且勾 BJ → 用賠率
-            delta += stake * hand.u * bjRate();
-          } else {
-            delta -= stake * hand.u; // 其餘全部輸 1x（不理 Double）
+      // 保險先處理（只在明牌 A）
+      if(allowIns){
+        for(var h0=0;h0<obj.hands.length;h0++){
+          var hh=obj.hands[h0];
+          if(hh.ins){
+            delta += stake * hh.u * (dealerBJ ? 1 : -0.5);
           }
-          if (allowIns && hand.ins){ delta += stake * hand.u; } // 保險（莊家 BJ 時）+1x
         }
-      } else {
-        if(allowIns){ for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } } }
-        for(var h2=0;h2<n;h2++){
-          var hand2=obj.hands[h2];
-          delta += stake * hand2.u * multNonDealerBJ(hand2, n>1);
-        }
+      }
+
+      // 正常輸贏
+      for(var h=0;h<obj.hands.length;h++){
+        var hand=obj.hands[h];
+        delta += stake * hand.u * multForHand(hand);
       }
 
       state.balances[name]=(state.balances[name]||0)+delta;
@@ -436,32 +421,25 @@
     else { state.bankerRoundCount -= 1; }
     state.round -= 1;
 
-    // 粗略地按當前的 dealer 狀態重算一遍再反向
+    // 根據當前 A/BJ 狀態重算上一局再反向（簡化）
     var stake=last.stake||state.stake;
-    function multNonDealerBJ_Undo(hand,isSplitLike){
-      if (hand.early){ if(isSplitLike) return 1; return (last.bjNum||state.bj.bjNum); }
-      if (hand.r==="W") return hand.dbl?2:1;
-      if (hand.r==="L") return hand.dbl?-2:-1;
-      return 0;
-    }
+    var allowIns=state.bj.dealerA;
+    var dealerBJ=state.bj.dealerHasBJ;
 
     var netBanker=0;
     for(var name in last.results){
-      var obj=last.results[name]; var delta=0; var n=obj.hands.length;
-      var dealerBJNow=state.bj.dealerHasBJ;
-      var allowInsNow=state.bj.dealerA;
+      var obj=last.results[name]; var delta=0;
 
-      if(dealerBJNow){
-        for(var h=0;h<n;h++){
-          var hand=obj.hands[h];
-          if (hand.r==="D"){ delta += 0; }
-          else if (n===1 && hand.early){ delta += stake * hand.u * (last.bjNum||state.bj.bjNum); }
-          else { delta -= stake * hand.u; }
-          if (allowInsNow && hand.ins){ delta += stake * hand.u; }
+      if(allowIns){
+        for(var h0=0;h0<obj.hands.length;h0++){
+          var hh=obj.hands[h0];
+          if(hh.ins){ delta += stake * hh.u * (dealerBJ ? 1 : -0.5); }
         }
-      } else {
-        if(allowInsNow){ for(var h1=0;h1<n;h1++){ var ih=obj.hands[h1]; if(ih.ins){ delta -= stake*0.5*ih.u; } } }
-        for(var h2=0;h2<n;h2++){ var hand2=obj.hands[h2]; delta += stake * hand2.u * multNonDealerBJ_Undo(hand2, n>1); }
+      }
+      for(var h=0;h<obj.hands.length;h++){
+        var hand=obj.hands[h];
+        var m = hand.early ? (last.bjNum||state.bj.bjNum) : (hand.r==="W" ? (hand.dbl?2:1) : hand.r==="L" ? (hand.dbl?-2:-1) : 0);
+        delta += stake * hand.u * m;
       }
 
       state.balances[name] -= delta; // 反向

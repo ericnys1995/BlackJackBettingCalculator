@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>賭錢 Mark App v2.7.9（21 點｜每手保險注碼｜BJ=賠率:1）</title>
+<title>賭錢 Mark App v2.7.8（21 點｜BJ=賠率:1｜精準撤銷）</title>
 <style>
   :root { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans CJK HK","PingFang HK","Microsoft JhengHei",Arial,sans-serif; }
   body { margin:0; padding:12px; background:#f7f7f9; color:#111827; }
@@ -18,9 +17,8 @@
   .chip { padding:3px 8px; border:1px solid #d1d5db; border-radius:9999px; background:#f3f4f6; font-size:12px; }
   .muted { color:#6b7280; }
   input[type="text"], input[type="number"] { padding:8px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; }
-  input.units { width:70px; text-align:center; }            /* Setup頁（Stake/BJ/Rotate） */
-  .handset .units-input { width:56px; text-align:center; }  /* 主注碼輸入，較窄 */
-  .handset .ins-units { width:56px; text-align:center; }    /* 保險注碼輸入，較窄 */
+  input.units { width:70px; text-align:center; }           /* Setup頁（Stake/BJ/Rotate） */
+  .handset .units-input { width:56px; text-align:center; } /* ▶ 注碼輸入變窄 */
   button { padding:8px 12px; border:1px solid #111827; background:#111827; color:#fff; border-radius:10px; cursor:pointer; font-size:14px; }
   button.secondary { background:#fff; color:#111827; border-color:#d1d5db; }
   button.destructive { background:#ef4444; border-color:#ef4444; }
@@ -34,7 +32,7 @@
   .fixed-hand-ctrl { display:flex; gap:6px; align-items:center; }
   .fixed-hand-ctrl .units { width:64px; text-align:center; }
   .handset-wrap { display:flex; gap:8px; flex-wrap:wrap; }
-  .handset { border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:6px; display:flex; flex-direction:column; gap:6px; min-width:270px; }
+  .handset { border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:6px; display:flex; flex-direction:column; gap:6px; min-width:260px; }
   .hand-top { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .hand-label { font-size:12px; padding:2px 6px; border:1px solid #d1d5db; border-radius:9999px; background:#fafafa; }
   .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
@@ -44,7 +42,7 @@
 </style>
 </head>
 <body>
-  <h1>賭錢 Mark App v2.7.9（只限 21 點）</h1>
+  <h1>賭錢 Mark App v2.7.8（只限 21 點）</h1>
 
   <div class="tabs">
     <button id="tabPlay" class="tabbtn active">Play</button>
@@ -92,7 +90,7 @@
     <div class="card">
       <div class="toolbar">
         <label>每注單位</label>
-        <input id="stake" type="number" value="10" min="1" step="1" class="units" />
+        <input id="stake" type="number" value="10" min="1" step="1" class="units" />   <!-- ▶ 預設 10 -->
 
         <label style="margin-left:10px;">BJ 賠率</label>
         <input id="bjNum" type="number" value="2" min="1" step="1" class="units" />
@@ -122,10 +120,11 @@
 
 <script>
 (function(){
-  var STORAGE_KEY = "banker_mark_app_v279";
+  var STORAGE_KEY = "banker_mark_app_v278";
   var DEFAULT_PLAYERS = ["Alan","PC","King","Eric","Kei","Ho","Kenneth"];
   var MAX_HANDS = 4;
 
+  // storage fallback
   var memStore = {};
   function readStore(){ try{ var raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return memStore[STORAGE_KEY]?JSON.parse(memStore[STORAGE_KEY]):null; } }
   function writeStore(obj){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }catch(e){ memStore[STORAGE_KEY]=JSON.stringify(obj); } }
@@ -135,13 +134,14 @@
 
   var state = {
     players: DEFAULT_PLAYERS.slice(),
-    stake: 10,     // 預設 10
+    stake: 10,                 // ▶ 預設 10
     round: 1,
     bankerIndex: 0,
     bankerRoundCount: 0,
     rotateEvery: 3,
     balances: {},
     history: [],
+    // 只影響保險的兩個 checkbox 仍保留
     bj: { dealerA:false, dealerHasBJ:false, bjNum:2, bjDen:1 } // bjDen 固定 1
   };
 
@@ -172,7 +172,7 @@
         +'<input type="text" value="'+name+'" data-idx="'+i+'" />'
         +'<button class="secondary small move-up" data-idx="'+i+'">上移</button>'
         +'<button class="secondary small move-down" data-idx="'+i+'">下移</button>'
-        +'<button class="destructive small del" data-idx="'+i}">刪</button>';
+        +'<button class="destructive small del" data-idx="'+i+'">刪</button>';
       box.appendChild(row);
     }
     var inputs=box.querySelectorAll("input[type='text']");
@@ -224,7 +224,6 @@
       +     vals
       +    '<label class="muted" style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="dbl" data-name="'+playerName+'" data-hand="'+handIdx+'" /> Double</label>'
       +    '<label class="muted" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="ins" data-name="'+playerName+'" data-hand="'+handIdx+'" /> 保險</label>'
-      +    '<input class="ins-units" data-name="'+playerName+'" data-hand="'+handIdx+'" type="number" value="0" min="0" step="1" title="保險注碼（以每注單位為單位）" />'
       +  '</div>'
       +  '<div class="row">'
       +    '<span class="muted">注數</span>'
@@ -271,14 +270,14 @@
     // outcome buttons
     var segBtns=wrap.querySelectorAll(".segbtn");
     for(var q=0;q<segBtns.length;q++){ segBtns[q].addEventListener("click",(function(btn){ return function(){ var p=btn.parentElement; var all=p.querySelectorAll(".segbtn"); for(var t=0;t<all.length;t++){ all[t].classList.remove("active"); } btn.classList.add("active"); };})(segBtns[q])); }
-    // 主注碼控制
+    // 注碼控制
     var incs=wrap.querySelectorAll(".units-inc");
-    for(var a=0;a<incs.length;a++){ incs[a].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)) v=1; inp.value=String(v+1); };})(incs[a])); }
+    for(var a=0;a<incs.length;a++){ incs[a].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); if(!inp) inp=wrap.querySelector('input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)) v=1; inp.value=String(v+1); };})(incs[a])); }
     var decs=wrap.querySelectorAll(".units-dec");
-    for(var b=0;b<decs.length;b++){ decs[b].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<=1) v=2; inp.value=String(v-1); };})(decs[b])); }
+    for(var b=0;b<decs.length;b++){ decs[b].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); if(!inp) inp=wrap.querySelector('input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<=1) v=2; inp.value=String(v-1); };})(decs[b])); }
     var x2s=wrap.querySelectorAll(".units-x2");
-    for(var c=0;c<x2s.length;c++){ x2s[c].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<1) v=1; inp.value=String(v*2); };})(x2s[c])); }
-    // BJ 勾選 → 自動設為 W
+    for(var c=0;c<x2s.length;c++){ x2s[c].addEventListener("click",(function(btn){ return function(){ var inp=wrap.querySelector('.units-input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); if(!inp) inp=wrap.querySelector('input[data-name="'+btn.dataset.name+'"][data-hand="'+btn.dataset.hand+'"]'); var v=parseInt(inp.value||"1",10); if(!isFinite(v)||v<1) v=1; inp.value=String(v*2); };})(x2s[c])); }
+    // ▶ BJ 勾選時，自動把 outcome 置為 W
     var bjChecks=wrap.querySelectorAll(".earlybj");
     for(var d=0;d<bjChecks.length;d++){
       bjChecks[d].addEventListener("change", function(){
@@ -330,7 +329,7 @@
         var obj=h.results[name]; var tags=[];
         for(var k=0;k<obj.hands.length;k++){
           var o=obj.hands[k];
-          var tag = (o.r)+(o.dbl?"(×2)":"") + "×"+o.u + (o.ins?"[保="+o.insU+"]":"") + (o.early?"[BJ]":"");
+          var tag = (o.r)+(o.dbl?"(×2)":"") + "×"+o.u + (o.ins?"[保]":"") + (o.early?"[BJ]":"");
           tags.push(tag);
         }
         parts.push(name+':[ '+tags.join(", ")+' ]');
@@ -340,7 +339,7 @@
     }
   }
 
-  /* ===== 統一計算（含每手保險注碼） ===== */
+  /* ===== 統一計算（用於記錄 & 撤銷，確保對稱） ===== */
   function computeDeltas(results, params){
     var stake=params.stake, bjNum=params.bjNum, dealerA=params.dealerA, dealerBJ=params.dealerBJ;
     function bjRateByNum(){ return (bjNum>0?bjNum:2); }
@@ -354,19 +353,14 @@
     for(var name in results){
       var obj=results[name]; if(!obj) continue;
       var delta=0;
-
-      // ▶ 先結算保險（只在明牌 A 有效；金額= insU × stake；莊家BJ → +1；否則 -1）
+      // 先處理保險（只在明牌 A）
       if(dealerA){
         for(var h0=0; h0<obj.hands.length; h0++){
           var hh=obj.hands[h0];
-          if(hh.ins && hh.insU>0){
-            var insAmt = stake * hh.insU;
-            delta += (dealerBJ ? +1 : -1) * insAmt;
-          }
+          if(hh.ins) delta += stake * hh.u * (dealerBJ ? 1 : -0.5);
         }
       }
-
-      // 主注輸贏
+      // 正常輸贏
       for(var h=0; h<obj.hands.length; h++){
         var hand=obj.hands[h];
         delta += stake * hand.u * multForHand(hand);
@@ -389,7 +383,7 @@
 
     state.history.push({ round:state.round, banker:banker, results:results, netBanker:calc.netBanker, params:params });
 
-    // 下一局 & 輪莊
+    // 輪莊 & 下一局
     state.bankerRoundCount += 1;
     if(state.bankerRoundCount >= state.rotateEvery){ state.bankerRoundCount = 0; state.bankerIndex = (state.bankerIndex + 1) % state.players.length; }
     state.round += 1;
@@ -399,14 +393,13 @@
 
   function undoRound(){
     if(!state.history.length) return;
-
-    // 先回上局的位置
+    // 先回到上一局的莊家/回合
     if(state.bankerRoundCount===0){ state.bankerIndex=(state.bankerIndex-1+state.players.length)%state.players.length; state.bankerRoundCount=state.rotateEvery-1; }
     else { state.bankerRoundCount -= 1; }
     state.round -= 1;
 
-    var last=state.history.pop();
-    var calc=computeDeltas(last.results, last.params); // 用「當時參數」重算
+    var last=state.history.pop(); // 取出上一局資料（含當時 params）
+    var calc=computeDeltas(last.results, last.params); // 重新算出當時的變動
 
     // 反向套用
     for(var name in calc.deltas){ state.balances[name]-=calc.deltas[name]; }
@@ -434,13 +427,11 @@
         var segActive=handsEl[h].querySelector(".segbtn.active");
         var r=segActive?segActive.dataset.val:"D";
         var dblEl=handsEl[h].querySelector(".dbl");
-        var unitsEl=handsEl[h].querySelector(".units-input");
-        var insUnitsEl=handsEl[h].querySelector(".ins-units");
+        var unitsEl=handsEl[h].querySelector(".units-input") || handsEl[h].querySelector('input[type="number"]');
         var u=parseInt(unitsEl?unitsEl.value:"1",10); if(!isFinite(u)||u<1) u=1;
-        var insU=parseInt(insUnitsEl?insUnitsEl.value:"0",10); if(!isFinite(insU)||insU<0) insU=0;
         var insEl=handsEl[h].querySelector(".ins");
         var earlyEl=handsEl[h].querySelector(".earlybj"); // 勾=先手BJ
-        hands.push({ r:r, dbl:!!(dblEl&&dblEl.checked), u:u, ins: !!(insEl&&insEl.checked), insU: insU, early: !!(earlyEl&&earlyEl.checked) });
+        hands.push({ r:r, dbl:!!(dblEl&&dblEl.checked), u:u, ins: !!(insEl&&insEl.checked), early: !!(earlyEl&&earlyEl.checked) });
       }
       res[name]={ hands:hands };
     }
